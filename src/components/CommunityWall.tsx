@@ -11,73 +11,8 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Eye, Share2, AlertCircle } from "lucide-react";
-
-// Define a mock JournalUploader component since we don't have access to the actual implementation
-interface JournalUploaderProps {
-  onSubmit: (file: File) => Promise<void>;
-  isLoading?: boolean;
-}
-
-const JournalUploader: React.FC<JournalUploaderProps> = ({
-  onSubmit,
-  isLoading = false,
-}) => {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setSelectedFile(e.target.files[0]);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (selectedFile) {
-      await onSubmit(selectedFile);
-    }
-  };
-
-  return (
-    <div className="bg-background p-4 rounded-md border">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-md p-6">
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleFileChange}
-            className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
-          />
-          <p className="mt-2 text-sm text-muted-foreground">
-            Upload a photo of your journal entry
-          </p>
-        </div>
-
-        {selectedFile && (
-          <div className="mt-4">
-            <p className="text-sm font-medium">
-              Selected file: {selectedFile.name}
-            </p>
-            <div className="mt-2">
-              <img
-                src={URL.createObjectURL(selectedFile)}
-                alt="Preview"
-                className="max-h-64 rounded-md mx-auto"
-              />
-            </div>
-          </div>
-        )}
-
-        <Button
-          type="submit"
-          disabled={!selectedFile || isLoading}
-          className="w-full"
-        >
-          {isLoading ? "Uploading..." : "Submit Journal Entry"}
-        </Button>
-      </form>
-    </div>
-  );
-};
+import ZoomableImage from "./ZoomableImage";
+import JournalUploader from "./JournalUploader";
 
 interface JournalEntry {
   id: string;
@@ -99,36 +34,7 @@ const CommunityWall = ({
   wallId = "wall-123",
   title = "Community Journal Wall",
   description = "Share your thoughts and reflections with the community. All entries are anonymous.",
-  entries = [
-    {
-      id: "1",
-      imageUrl:
-        "https://images.unsplash.com/photo-1527236438218-d82077ae1f85?w=600&q=80",
-      createdAt: "2023-06-15",
-      approved: true,
-    },
-    {
-      id: "2",
-      imageUrl:
-        "https://images.unsplash.com/photo-1506784983877-45594efa4cbe?w=600&q=80",
-      createdAt: "2023-06-16",
-      approved: true,
-    },
-    {
-      id: "3",
-      imageUrl:
-        "https://images.unsplash.com/photo-1517842645767-c639042777db?w=600&q=80",
-      createdAt: "2023-06-17",
-      approved: true,
-    },
-    {
-      id: "4",
-      imageUrl:
-        "https://images.unsplash.com/photo-1517842536804-bf6629e2c291?w=600&q=80",
-      createdAt: "2023-06-18",
-      approved: true,
-    },
-  ],
+  entries = [],
   isFirstVisit = false,
   onSubmitEntry = async () => {},
 }: CommunityWallProps) => {
@@ -194,7 +100,10 @@ const CommunityWall = ({
                 first. Your submission will be reviewed by a moderator before
                 being added to the wall.
               </p>
-              <JournalUploader onSubmit={handleSubmit} isLoading={isLoading} />
+              <JournalUploader
+                onSubmit={handleSubmit}
+                isSubmitting={isLoading}
+              />
             </CardContent>
           </Card>
         </div>
@@ -336,20 +245,20 @@ const CommunityWall = ({
         open={!!selectedEntry}
         onOpenChange={(open) => !open && setSelectedEntry(null)}
       >
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[95vh] overflow-hidden">
           <DialogHeader>
             <DialogTitle>Journal Entry</DialogTitle>
           </DialogHeader>
           {selectedEntry && (
-            <div className="mt-2">
-              <div className="rounded-md overflow-hidden mb-4">
-                <img
+            <div className="mt-4">
+              <div className="h-[70vh] mb-4">
+                <ZoomableImage
                   src={selectedEntry.imageUrl}
                   alt="Journal entry"
-                  className="w-full object-contain max-h-[70vh]"
+                  className="w-full h-full"
                 />
               </div>
-              <div className="flex justify-between items-center text-sm text-muted-foreground">
+              <div className="flex justify-between items-center text-sm text-muted-foreground pt-4 border-t">
                 <span>
                   Posted on{" "}
                   {new Date(selectedEntry.createdAt).toLocaleDateString()}

@@ -33,18 +33,18 @@ import {
   ExternalLink,
   CheckCircle,
   XCircle,
+  Eye,
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { useSubmissions } from "../App";
 import WallCreationForm from "./WallCreationForm";
+import ZoomableImage from "./ZoomableImage";
 
 interface Wall {
   id: string;
   title: string;
   description: string;
   createdAt: string;
-  submissionCount: number;
-  pendingCount: number;
   shareableLink: string;
 }
 
@@ -60,6 +60,8 @@ interface Submission {
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState("walls");
   const [isCreateWallDialogOpen, setIsCreateWallDialogOpen] = useState(false);
+  const [selectedSubmission, setSelectedSubmission] =
+    useState<Submission | null>(null);
   const { toast } = useToast();
   const { submissions: globalSubmissions } = useSubmissions();
   const [previousSubmissionCount, setPreviousSubmissionCount] = useState(0);
@@ -71,8 +73,6 @@ const AdminDashboard = () => {
       title: "Gratitude Journal",
       description: "Share what you're grateful for today",
       createdAt: "2023-06-15",
-      submissionCount: 24,
-      pendingCount: 3,
       shareableLink: "https://journal-wall.com/wall/gratitude-123",
     },
     {
@@ -80,8 +80,6 @@ const AdminDashboard = () => {
       title: "Daily Reflections",
       description: "End of day thoughts and reflections",
       createdAt: "2023-07-02",
-      submissionCount: 18,
-      pendingCount: 0,
       shareableLink: "https://journal-wall.com/wall/reflections-456",
     },
     {
@@ -89,21 +87,34 @@ const AdminDashboard = () => {
       title: "Creative Writing",
       description: "Share your poetry, short stories, or creative writing",
       createdAt: "2023-08-10",
-      submissionCount: 12,
-      pendingCount: 5,
       shareableLink: "https://journal-wall.com/wall/creative-789",
     },
   ]);
 
-  // Use global submissions from context
-  const [submissions, setSubmissions] = useState(globalSubmissions);
+  // Helper functions to calculate submission counts dynamically
+  const getSubmissionCount = (wallId: string) => {
+    return submissions.filter(
+      (submission) =>
+        submission.wallId === wallId && submission.status === "approved",
+    ).length;
+  };
 
-  // Update local submissions when global submissions change
+  const getPendingCount = (wallId: string) => {
+    return submissions.filter(
+      (submission) =>
+        submission.wallId === wallId && submission.status === "pending",
+    ).length;
+  };
+
+  // Use global submissions directly from context
+  const submissions = globalSubmissions;
+
+  // Show toast notification for new submissions
   useEffect(() => {
-    setSubmissions(globalSubmissions);
-
-    // Show toast notification for new submissions
-    if (globalSubmissions.length > previousSubmissionCount) {
+    if (
+      globalSubmissions.length > previousSubmissionCount &&
+      previousSubmissionCount > 0
+    ) {
       const newSubmissionsCount =
         globalSubmissions.length - previousSubmissionCount;
       toast({
@@ -113,6 +124,13 @@ const AdminDashboard = () => {
     }
     setPreviousSubmissionCount(globalSubmissions.length);
   }, [globalSubmissions, previousSubmissionCount, toast]);
+
+  // Initialize previous count after first render to avoid false notifications
+  useEffect(() => {
+    if (previousSubmissionCount === 0) {
+      setPreviousSubmissionCount(globalSubmissions.length);
+    }
+  }, [globalSubmissions.length, previousSubmissionCount]);
 
   const handleCreateWall = async (wallData: {
     title: string;
@@ -127,8 +145,6 @@ const AdminDashboard = () => {
       title: wallData.title,
       description: wallData.description,
       createdAt: new Date().toISOString().split("T")[0],
-      submissionCount: 0,
-      pendingCount: 0,
       shareableLink,
     };
 
@@ -147,50 +163,50 @@ const AdminDashboard = () => {
   };
 
   const handleApproveSubmission = (id: string) => {
-    setSubmissions(
-      submissions.map((submission) =>
-        submission.id === id
-          ? { ...submission, status: "approved" }
-          : submission,
-      ),
+    // Update the submission status in localStorage directly
+    const updatedSubmissions = submissions.map((submission) =>
+      submission.id === id
+        ? { ...submission, status: "approved" as const }
+        : submission,
     );
 
-    // Update the wall's pending count
-    const submission = submissions.find((s) => s.id === id);
-    if (submission) {
-      setWalls(
-        walls.map((wall) =>
-          wall.id === submission.wallId
-            ? {
-                ...wall,
-                pendingCount: wall.pendingCount - 1,
-                submissionCount: wall.submissionCount + 1,
-              }
-            : wall,
-        ),
+    try {
+      localStorage.setItem(
+        "journal-submissions",
+        JSON.stringify(updatedSubmissions),
       );
+      // Dispatch custom event to notify other windows
+      window.dispatchEvent(
+        new CustomEvent("submissions-updated", {
+          detail: { submissions: updatedSubmissions },
+        }),
+      );
+    } catch (error) {
+      console.error("Error updating submission status:", error);
     }
   };
 
   const handleRejectSubmission = (id: string) => {
-    setSubmissions(
-      submissions.map((submission) =>
-        submission.id === id
-          ? { ...submission, status: "rejected" }
-          : submission,
-      ),
+    // Update the submission status in localStorage directly
+    const updatedSubmissions = submissions.map((submission) =>
+      submission.id === id
+        ? { ...submission, status: "rejected" as const }
+        : submission,
     );
 
-    // Update the wall's pending count
-    const submission = submissions.find((s) => s.id === id);
-    if (submission) {
-      setWalls(
-        walls.map((wall) =>
-          wall.id === submission.wallId
-            ? { ...wall, pendingCount: wall.pendingCount - 1 }
-            : wall,
-        ),
+    try {
+      localStorage.setItem(
+        "journal-submissions",
+        JSON.stringify(updatedSubmissions),
       );
+      // Dispatch custom event to notify other windows
+      window.dispatchEvent(
+        new CustomEvent("submissions-updated", {
+          detail: { submissions: updatedSubmissions },
+        }),
+      );
+    } catch (error) {
+      console.error("Error updating submission status:", error);
     }
   };
 
@@ -267,19 +283,19 @@ const AdminDashboard = () => {
                           <span className="text-sm text-muted-foreground">
                             Submissions
                           </span>
-                          <span>{wall.submissionCount}</span>
+                          <span>{getSubmissionCount(wall.id)}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-sm text-muted-foreground">
                             Pending
                           </span>
                           <span>
-                            {wall.pendingCount > 0 ? (
+                            {getPendingCount(wall.id) > 0 ? (
                               <Badge variant="destructive">
-                                {wall.pendingCount}
+                                {getPendingCount(wall.id)}
                               </Badge>
                             ) : (
-                              wall.pendingCount
+                              getPendingCount(wall.id)
                             )}
                           </span>
                         </div>
@@ -347,18 +363,34 @@ const AdminDashboard = () => {
                       {pendingSubmissions.map((submission) => (
                         <TableRow key={submission.id}>
                           <TableCell>
-                            <div className="w-16 h-16 relative overflow-hidden rounded-md">
+                            <div
+                              className="w-16 h-16 relative overflow-hidden rounded-md cursor-pointer hover:opacity-80 transition-opacity"
+                              onClick={() => setSelectedSubmission(submission)}
+                            >
                               <img
                                 src={submission.imageUrl}
                                 alt="Journal submission"
                                 className="absolute inset-0 w-full h-full object-cover"
                               />
+                              <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors flex items-center justify-center">
+                                <Eye className="h-4 w-4 text-white opacity-0 hover:opacity-100 transition-opacity" />
+                              </div>
                             </div>
                           </TableCell>
                           <TableCell>{submission.wallTitle}</TableCell>
                           <TableCell>{submission.submittedAt}</TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end space-x-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  setSelectedSubmission(submission)
+                                }
+                              >
+                                <Eye className="h-4 w-4 mr-1" />
+                                Review
+                              </Button>
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -402,6 +434,66 @@ const AdminDashboard = () => {
           </div>
         </Tabs>
       </div>
+
+      {/* Submission Review Dialog */}
+      <Dialog
+        open={!!selectedSubmission}
+        onOpenChange={(open) => !open && setSelectedSubmission(null)}
+      >
+        <DialogContent className="max-w-4xl max-h-[95vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>Review Journal Submission</DialogTitle>
+            <DialogDescription>
+              {selectedSubmission && (
+                <span>
+                  Submitted to &quot;{selectedSubmission.wallTitle}&quot; on{" "}
+                  {selectedSubmission.submittedAt}
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedSubmission && (
+            <div className="mt-4">
+              <div className="h-[60vh] mb-4">
+                <ZoomableImage
+                  src={selectedSubmission.imageUrl}
+                  alt="Journal submission for review"
+                  className="w-full h-full"
+                />
+              </div>
+              <div className="flex justify-end space-x-2 pt-4 border-t">
+                <Button
+                  variant="outline"
+                  onClick={() => setSelectedSubmission(null)}
+                >
+                  Close
+                </Button>
+                <Button
+                  variant="outline"
+                  className="text-destructive"
+                  onClick={() => {
+                    handleRejectSubmission(selectedSubmission.id);
+                    setSelectedSubmission(null);
+                  }}
+                >
+                  <XCircle className="h-4 w-4 mr-1" />
+                  Reject
+                </Button>
+                <Button
+                  className="text-green-600 bg-green-50 hover:bg-green-100"
+                  onClick={() => {
+                    handleApproveSubmission(selectedSubmission.id);
+                    setSelectedSubmission(null);
+                  }}
+                >
+                  <CheckCircle className="h-4 w-4 mr-1" />
+                  Approve
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -1,11 +1,89 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import CommunityWall from "./CommunityWall";
 import { useSubmissions } from "../App";
 
 const WallPage = () => {
   const { wallId } = useParams<{ wallId: string }>();
-  const { addSubmission } = useSubmissions();
+  const { addSubmission, submissions } = useSubmissions();
+  const [approvedEntries, setApprovedEntries] = useState<any[]>([]);
+
+  // Transform approved submissions into the format expected by CommunityWall
+  useEffect(() => {
+    const wallSubmissions = submissions.filter(
+      (submission) =>
+        submission.wallId === wallId && submission.status === "approved",
+    );
+
+    const transformedEntries = wallSubmissions.map((submission) => ({
+      id: submission.id,
+      imageUrl: submission.imageUrl,
+      createdAt: submission.submittedAt,
+      approved: true,
+    }));
+
+    setApprovedEntries(transformedEntries);
+  }, [submissions, wallId]);
+
+  // Listen for storage changes to update entries in real-time
+  useEffect(() => {
+    const handleStorageChange = () => {
+      // Re-fetch submissions from localStorage when changes occur
+      try {
+        const stored = localStorage.getItem("journal-submissions");
+        if (stored) {
+          const parsedSubmissions = JSON.parse(stored);
+          const wallSubmissions = parsedSubmissions.filter(
+            (submission: any) =>
+              submission.wallId === wallId && submission.status === "approved",
+          );
+
+          const transformedEntries = wallSubmissions.map((submission: any) => ({
+            id: submission.id,
+            imageUrl: submission.imageUrl,
+            createdAt: submission.submittedAt,
+            approved: true,
+          }));
+
+          setApprovedEntries(transformedEntries);
+        }
+      } catch (error) {
+        console.error("Error parsing submissions from storage:", error);
+      }
+    };
+
+    const handleCustomEvent = (e: CustomEvent) => {
+      if (e.detail?.submissions) {
+        const wallSubmissions = e.detail.submissions.filter(
+          (submission: any) =>
+            submission.wallId === wallId && submission.status === "approved",
+        );
+
+        const transformedEntries = wallSubmissions.map((submission: any) => ({
+          id: submission.id,
+          imageUrl: submission.imageUrl,
+          createdAt: submission.submittedAt,
+          approved: true,
+        }));
+
+        setApprovedEntries(transformedEntries);
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    window.addEventListener(
+      "submissions-updated",
+      handleCustomEvent as EventListener,
+    );
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener(
+        "submissions-updated",
+        handleCustomEvent as EventListener,
+      );
+    };
+  }, [wallId]);
 
   // In a real app, you would fetch wall data based on wallId
   // For now, we'll use mock data and determine wall info from the ID
@@ -69,6 +147,7 @@ const WallPage = () => {
         wallId={wallId}
         title={wallInfo.title}
         description={wallInfo.description}
+        entries={approvedEntries}
         isFirstVisit={true}
         onSubmitEntry={handleSubmitEntry}
       />
