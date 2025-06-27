@@ -61,49 +61,49 @@ export const wallsApi = {
   },
 
   async getByIdOrCode(idOrCode: string): Promise<Wall | null> {
-    console.log(
-      "🔍 [wallsApi.getByIdOrCode] Searching for wall with ID/code:",
-      idOrCode,
-    );
+    try {
+      // Use a single query with OR condition to search both ID and wall_code
+      const { data, error } = await supabase
+        .from("walls")
+        .select("*")
+        .or(`id.eq.${idOrCode},wall_code.ilike.${idOrCode.toUpperCase()}`);
 
-    // First, let's see what walls exist in the database
-    const { data: allWalls, error: allWallsError } = await supabase
-      .from("walls")
-      .select("*");
-
-    console.log("🔍 [wallsApi.getByIdOrCode] All walls in database:", allWalls);
-    console.log(
-      "🔍 [wallsApi.getByIdOrCode] Database query error (if any):",
-      allWallsError,
-    );
-
-    // Fix the OR query syntax - use proper string formatting
-    const { data, error } = await supabase
-      .from("walls")
-      .select("*")
-      .or(`id.eq."${idOrCode}",wall_code.eq."${idOrCode}"`)
-      .single();
-
-    console.log("🔍 [wallsApi.getByIdOrCode] Query result:", { data, error });
-
-    if (error) {
-      if (error.code === "PGRST116") {
-        // No rows returned
-        console.log(
-          "🔍 [wallsApi.getByIdOrCode] No wall found with ID/code:",
-          idOrCode,
-        );
-        return null;
+      if (error) {
+        throw new Error(`Database query failed: ${error.message}`);
       }
-      console.error(
-        "🔴 [wallsApi.getByIdOrCode] Error fetching wall by ID or code:",
-        error,
-      );
-      throw error;
-    }
 
-    console.log("✅ [wallsApi.getByIdOrCode] Found wall:", data);
-    return data;
+      // Return the first match (should only be one)
+      return data && data.length > 0 ? data[0] : null;
+    } catch (error) {
+      // If the OR query fails, try individual queries as fallback
+      try {
+        // Try exact ID match first
+        const { data: idData, error: idError } = await supabase
+          .from("walls")
+          .select("*")
+          .eq("id", idOrCode)
+          .maybeSingle();
+
+        if (idData && !idError) {
+          return idData;
+        }
+
+        // Try case-insensitive wall_code match
+        const { data: codeData, error: codeError } = await supabase
+          .from("walls")
+          .select("*")
+          .eq("wall_code", idOrCode.toUpperCase())
+          .maybeSingle();
+
+        if (codeError) {
+          throw new Error(`Wall code search failed: ${codeError.message}`);
+        }
+
+        return codeData;
+      } catch (fallbackError) {
+        throw new Error(`All search methods failed: ${fallbackError.message}`);
+      }
+    }
   },
 
   async create(wall: Omit<Wall, "id" | "created_at">): Promise<Wall> {

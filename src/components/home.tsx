@@ -13,6 +13,7 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Separator } from "./ui/separator";
+import { wallsApi } from "../lib/supabase";
 
 const Home = () => {
   // Default state for login form
@@ -36,21 +37,72 @@ const Home = () => {
   };
 
   // Handle wall access
-  const handleWallAccess = () => {
+  const handleWallAccess = async () => {
     if (!wallInput.trim()) return;
 
-    // Check if it's a URL or a code
-    if (wallInput.includes("http") || wallInput.includes("/wall/")) {
-      // It's a URL - extract the wall ID
-      const urlParts = wallInput.split("/wall/");
-      if (urlParts.length > 1) {
-        const wallId = urlParts[1].split("?")[0]; // Remove any query parameters
-        window.location.href = `/wall/${wallId}`;
+    const cleanInput = wallInput.trim();
+
+    try {
+      // Check if it's a URL or a code
+      if (cleanInput.includes("http") || cleanInput.includes("/wall/")) {
+        // It's a URL - extract the wall ID/code
+        const urlParts = cleanInput.split("/wall/");
+        if (urlParts.length > 1) {
+          const wallIdOrCode = urlParts[1].split("?")[0]; // Remove any query parameters
+          window.location.href = `/wall/${wallIdOrCode}`;
+        }
+      } else {
+        // It's a code - look up the wall to verify it exists
+        const searchCode = cleanInput.toUpperCase();
+
+        // Show loading state
+        const originalButtonText =
+          document.querySelector("button")?.textContent;
+        const button = document.querySelector("button");
+        if (button) button.textContent = "Searching...";
+
+        const wall = await wallsApi.getByIdOrCode(searchCode);
+
+        // Reset button text
+        if (button && originalButtonText)
+          button.textContent = originalButtonText;
+
+        if (wall) {
+          // Use the wall's ID for the URL to ensure consistency
+          window.location.href = `/wall/${wall.id}`;
+        } else {
+          // More specific error message
+          alert(
+            `Wall not found for code "${searchCode}". Please check the code and try again.\n\nMake sure you're entering the exact 6-character code provided by the wall creator.`,
+          );
+        }
       }
-    } else {
-      // It's a code - convert to wall ID (in a real app, you'd look this up in your backend)
-      // For now, we'll use the code as the wall ID
-      window.location.href = `/wall/${wallInput}`;
+    } catch (error) {
+      // Reset button text if there was an error
+      const button = document.querySelector("button");
+      if (button) button.textContent = "Go to Wall";
+
+      // More detailed error message for users
+      let errorMessage = "Error accessing wall. ";
+
+      if (error instanceof Error) {
+        if (error.message.includes("Database query failed")) {
+          errorMessage +=
+            "There was a problem connecting to the database. Please check your internet connection and try again.";
+        } else if (error.message.includes("Wall code search failed")) {
+          errorMessage +=
+            "There was a problem searching for the wall code. Please try again.";
+        } else if (error.message.includes("All search methods failed")) {
+          errorMessage +=
+            "Multiple search attempts failed. Please check your internet connection or try again later.";
+        } else {
+          errorMessage += `Technical details: ${error.message}`;
+        }
+      } else {
+        errorMessage += "An unexpected error occurred. Please try again.";
+      }
+
+      alert(errorMessage);
     }
   };
 

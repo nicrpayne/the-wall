@@ -144,24 +144,46 @@ const AdminDashboard = () => {
     isPrivate: boolean;
   }) => {
     try {
+      console.log(
+        "🔧 [handleCreateWall] Starting wall creation with data:",
+        wallData,
+      );
+
       const wallCode = generateWallCode();
+      console.log("🔧 [handleCreateWall] Generated wall code:", wallCode);
 
       // First create the wall without the shareable link
-      const newWall = await wallsApi.create({
+      const wallToCreate = {
         title: wallData.title,
         description: wallData.description,
         wall_code: wallCode,
         shareable_link: "", // Temporary empty value
         is_private: wallData.isPrivate,
-      });
+      };
+
+      console.log(
+        "🔧 [handleCreateWall] Creating wall with data:",
+        wallToCreate,
+      );
+      const newWall = await wallsApi.create(wallToCreate);
+      console.log("🔧 [handleCreateWall] Wall created successfully:", newWall);
 
       // Now use the actual database-generated ID for the shareable link
       const shareableLink = `${window.location.origin}/wall/${newWall.id}`;
+      console.log(
+        "🔧 [handleCreateWall] Generated shareable link:",
+        shareableLink,
+      );
 
       // Update the wall with the correct shareable link
+      console.log("🔧 [handleCreateWall] Updating wall with shareable link...");
       const updatedWall = await wallsApi.update(newWall.id, {
         shareable_link: shareableLink,
       });
+      console.log(
+        "🔧 [handleCreateWall] Wall updated successfully:",
+        updatedWall,
+      );
 
       setWalls([updatedWall, ...walls]);
 
@@ -172,15 +194,41 @@ const AdminDashboard = () => {
         wallCode: updatedWall.wall_code,
       };
     } catch (error) {
-      console.error("Error creating wall:", error);
+      console.error("🔴 [handleCreateWall] Error creating wall:", error);
+      console.error("🔴 [handleCreateWall] Error details:", {
+        message: error?.message,
+        code: error?.code,
+        details: error?.details,
+        hint: error?.hint,
+        stack: error?.stack,
+      });
+
+      let errorMessage = "Failed to create wall. Please try again.";
+
+      // Provide more specific error messages based on the error
+      if (error?.message) {
+        if (error.message.includes("duplicate key")) {
+          errorMessage =
+            "A wall with this code already exists. Please try again.";
+        } else if (error.message.includes("permission")) {
+          errorMessage =
+            "Permission denied. Please check your database permissions.";
+        } else if (error.message.includes("network")) {
+          errorMessage =
+            "Network error. Please check your connection and try again.";
+        } else {
+          errorMessage = `Error: ${error.message}`;
+        }
+      }
+
       toast({
         title: "Error",
-        description: "Failed to create wall. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
       return {
         success: false,
-        error: "Failed to create wall",
+        error: errorMessage,
       };
     }
   };

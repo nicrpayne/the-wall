@@ -32,6 +32,7 @@ const JournalUploader = ({
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [isProcessingFile, setIsProcessingFile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
@@ -39,15 +40,57 @@ const JournalUploader = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log("🔵 [JournalUploader] File input changed");
     const file = event.target.files?.[0];
+
     if (file) {
+      console.log("🔵 [JournalUploader] File selected:", {
+        name: file.name,
+        size: file.size,
+        type: file.type,
+      });
+
+      // Validate file type
+      const allowedTypes = [
+        "image/jpeg",
+        "image/jpg",
+        "image/png",
+        "image/webp",
+        "image/gif",
+      ];
+      if (!allowedTypes.includes(file.type)) {
+        alert("Please select a valid image file (JPEG, PNG, WebP, or GIF)");
+        return;
+      }
+
+      // Validate file size (10MB limit)
+      if (file.size > 10 * 1024 * 1024) {
+        alert("File size too large. Please choose a file smaller than 10MB.");
+        return;
+      }
+
       setSelectedFile(file);
+      setIsProcessingFile(true);
       const reader = new FileReader();
+
       reader.onload = (e) => {
-        setCapturedImage(e.target?.result as string);
+        console.log("🔵 [JournalUploader] File read successfully");
+        const result = e.target?.result as string;
+        setCapturedImage(result);
         setShowPreview(true);
+        setIsProcessingFile(false);
+        console.log("🔵 [JournalUploader] Preview should now be visible");
       };
+
+      reader.onerror = (error) => {
+        console.error("🔴 [JournalUploader] Error reading file:", error);
+        setIsProcessingFile(false);
+        alert("Error reading the selected file. Please try again.");
+      };
+
       reader.readAsDataURL(file);
+    } else {
+      console.log("🔴 [JournalUploader] No file selected");
     }
   };
 
@@ -118,18 +161,30 @@ const JournalUploader = ({
   };
 
   const handleSubmit = async () => {
+    console.log("🔵 [JournalUploader] Submit button clicked");
     if (selectedFile) {
-      await onSubmit(selectedFile);
-      setCapturedImage(null);
-      setSelectedFile(null);
-      setShowPreview(false);
+      console.log("🔵 [JournalUploader] Submitting file:", selectedFile.name);
+      try {
+        await onSubmit(selectedFile);
+        console.log("🔵 [JournalUploader] File submitted successfully");
+        setCapturedImage(null);
+        setSelectedFile(null);
+        setShowPreview(false);
+      } catch (error) {
+        console.error("🔴 [JournalUploader] Error submitting file:", error);
+        alert("Error uploading your journal entry. Please try again.");
+      }
+    } else {
+      console.error("🔴 [JournalUploader] No file selected for submission");
     }
   };
 
   const resetUpload = () => {
+    console.log("🔵 [JournalUploader] Resetting upload");
     setCapturedImage(null);
     setSelectedFile(null);
     setShowPreview(false);
+    setIsProcessingFile(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -148,7 +203,14 @@ const JournalUploader = ({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {!showPreview ? (
+          {isProcessingFile ? (
+            <div className="flex flex-col items-center justify-center py-12 space-y-4">
+              <Loader2 className="h-8 w-8 animate-spin" />
+              <p className="text-sm text-muted-foreground">
+                Processing your image...
+              </p>
+            </div>
+          ) : !showPreview ? (
             <div className="space-y-6">
               <div className="grid grid-cols-1 gap-4">
                 <Button
@@ -165,16 +227,27 @@ const JournalUploader = ({
                     onClick={() => fileInputRef.current?.click()}
                     className="h-32 w-full flex flex-col items-center justify-center gap-2 border-2 border-dashed border-gray-300 rounded-lg"
                     variant="outline"
+                    disabled={isProcessingFile}
                   >
-                    <Upload size={32} />
-                    <span>Upload from Device</span>
+                    {isProcessingFile ? (
+                      <>
+                        <Loader2 className="animate-spin" size={32} />
+                        <span>Processing...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload size={32} />
+                        <span>Upload from Device</span>
+                      </>
+                    )}
                   </Button>
                   <input
                     type="file"
                     ref={fileInputRef}
                     onChange={handleFileChange}
-                    accept="image/*"
+                    accept="image/*,image/jpeg,image/jpg,image/png,image/webp,image/gif"
                     className="hidden"
+                    capture="environment"
                   />
                 </div>
               </div>
