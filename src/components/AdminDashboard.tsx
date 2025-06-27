@@ -51,6 +51,9 @@ const AdminDashboard = () => {
   const [isCreateWallDialogOpen, setIsCreateWallDialogOpen] = useState(false);
   const [selectedSubmission, setSelectedSubmission] =
     useState<Submission | null>(null);
+  const [selectedWallForEdit, setSelectedWallForEdit] = useState<Wall | null>(
+    null,
+  );
   const { toast } = useToast();
   const [walls, setWalls] = useState<Wall[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
@@ -299,6 +302,44 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleEditWall = async (wallData: {
+    title: string;
+    description: string;
+    isPrivate: boolean;
+  }) => {
+    if (!selectedWallForEdit) return { success: false };
+
+    try {
+      const updatedWall = await wallsApi.update(selectedWallForEdit.id, {
+        title: wallData.title,
+        description: wallData.description,
+        is_private: wallData.isPrivate,
+      });
+
+      setWalls(
+        walls.map((wall) =>
+          wall.id === selectedWallForEdit.id ? updatedWall : wall,
+        ),
+      );
+      setSelectedWallForEdit(null);
+
+      toast({
+        title: "Success",
+        description: "Wall updated successfully.",
+      });
+
+      return { success: true };
+    } catch (error) {
+      console.error("Error updating wall:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update wall. Please try again.",
+        variant: "destructive",
+      });
+      return { success: false };
+    }
+  };
+
   return (
     <div className="container mx-auto p-4 bg-background">
       <header className="mb-8">
@@ -398,7 +439,11 @@ const AdminDashboard = () => {
                     </CardContent>
                     <CardFooter className="flex justify-between">
                       <div className="flex space-x-2">
-                        <Button variant="outline" size="sm">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelectedWallForEdit(wall)}
+                        >
                           <Edit className="h-4 w-4 mr-1" />
                           Edit
                         </Button>
@@ -631,6 +676,32 @@ const AdminDashboard = () => {
                 </Button>
               </div>
             </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Wall Dialog */}
+      <Dialog
+        open={!!selectedWallForEdit}
+        onOpenChange={(open) => !open && setSelectedWallForEdit(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Wall Settings</DialogTitle>
+            <DialogDescription>
+              Update the settings for "{selectedWallForEdit?.title}".
+            </DialogDescription>
+          </DialogHeader>
+          {selectedWallForEdit && (
+            <WallCreationForm
+              onSubmit={handleEditWall}
+              initialData={{
+                title: selectedWallForEdit.title,
+                description: selectedWallForEdit.description,
+                isPrivate: selectedWallForEdit.is_private,
+              }}
+              isEditMode={true}
+            />
           )}
         </DialogContent>
       </Dialog>

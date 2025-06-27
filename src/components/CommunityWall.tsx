@@ -7,6 +7,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -22,9 +23,13 @@ import {
   Upload,
   Move,
   Trash2,
+  Save,
+  X,
+  GripVertical,
 } from "lucide-react";
 import ZoomableImage from "./ZoomableImage";
 import JournalUploader from "./JournalUploader";
+import WallCreationForm from "./WallCreationForm";
 import { useSwipeable } from "react-swipeable";
 
 interface JournalEntry {
@@ -42,6 +47,18 @@ interface CommunityWallProps {
   isFirstVisit?: boolean;
   onSubmitEntry?: (files: File | File[]) => Promise<void>;
   isAdminMode?: boolean;
+  onUpdateWall?: (wallData: {
+    title: string;
+    description: string;
+    isPrivate: boolean;
+  }) => Promise<void>;
+  onReorderEntries?: (reorderedEntries: JournalEntry[]) => Promise<void>;
+  wallData?: {
+    id: string;
+    title: string;
+    description: string;
+    is_private: boolean;
+  };
 }
 
 const CommunityWall = ({
@@ -52,6 +69,9 @@ const CommunityWall = ({
   isFirstVisit = false,
   onSubmitEntry = async (files: File | File[]) => {},
   isAdminMode = false,
+  onUpdateWall = async () => {},
+  onReorderEntries = async () => {},
+  wallData,
 }: CommunityWallProps) => {
   const [showUploader, setShowUploader] = useState(isFirstVisit);
   const [selectedEntry, setSelectedEntry] = useState<JournalEntry | null>(null);
@@ -63,6 +83,13 @@ const CommunityWall = ({
   const [viewMode, setViewMode] = useState<"grid" | "scroll" | "zoom">("grid");
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
+
+  // Admin functionality states
+  const [showSettings, setShowSettings] = useState(false);
+  const [isRearrangeMode, setIsRearrangeMode] = useState(false);
+  const [reorderedEntries, setReorderedEntries] =
+    useState<JournalEntry[]>(entries);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
   useEffect(() => {
     // Check local storage to see if user has already submitted to this wall
@@ -88,6 +115,11 @@ const CommunityWall = ({
 
     return () => window.removeEventListener("resize", checkMobile);
   }, [wallId, isFirstVisit, isAdminMode]);
+
+  // Update reordered entries when entries prop changes
+  useEffect(() => {
+    setReorderedEntries(entries);
+  }, [entries]);
 
   const handleSubmit = async (files: File | File[]) => {
     setIsLoading(true);
@@ -140,6 +172,58 @@ const CommunityWall = ({
     } else if (direction === "next" && currentImageIndex < entries.length - 1) {
       setCurrentImageIndex(currentImageIndex + 1);
     }
+  };
+
+  // Settings functionality
+  const handleUpdateWall = async (wallData: {
+    title: string;
+    description: string;
+    isPrivate: boolean;
+  }) => {
+    try {
+      await onUpdateWall(wallData);
+      setShowSettings(false);
+    } catch (error) {
+      console.error("Error updating wall:", error);
+    }
+  };
+
+  // Rearrange functionality
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  };
+
+  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    if (draggedIndex === null) return;
+
+    const newEntries = [...reorderedEntries];
+    const draggedEntry = newEntries[draggedIndex];
+    newEntries.splice(draggedIndex, 1);
+    newEntries.splice(dropIndex, 0, draggedEntry);
+
+    setReorderedEntries(newEntries);
+    setDraggedIndex(null);
+  };
+
+  const handleSaveRearrange = async () => {
+    try {
+      await onReorderEntries(reorderedEntries);
+      setIsRearrangeMode(false);
+    } catch (error) {
+      console.error("Error saving rearranged entries:", error);
+    }
+  };
+
+  const handleCancelRearrange = () => {
+    setReorderedEntries(entries);
+    setIsRearrangeMode(false);
   };
 
   // Swipe handlers for mobile navigation
@@ -219,21 +303,59 @@ const CommunityWall = ({
                   variant="outline"
                   size="sm"
                   onClick={() => setShowUploader(true)}
+                  disabled={isRearrangeMode}
                 >
                   <Upload className="h-4 w-4 mr-2" />
                   Add Entry
                 </Button>
-                <Button variant="outline" size="sm">
-                  <Move className="h-4 w-4 mr-2" />
-                  Rearrange
-                </Button>
-                <Button variant="outline" size="sm">
-                  <Settings className="h-4 w-4 mr-2" />
-                  Settings
-                </Button>
+                {!isRearrangeMode ? (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsRearrangeMode(true)}
+                      disabled={entries.length === 0}
+                    >
+                      <Move className="h-4 w-4 mr-2" />
+                      Rearrange
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowSettings(true)}
+                    >
+                      <Settings className="h-4 w-4 mr-2" />
+                      Settings
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleSaveRearrange}
+                    >
+                      <Save className="h-4 w-4 mr-2" />
+                      Save Order
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCancelRearrange}
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      Cancel
+                    </Button>
+                  </>
+                )}
               </>
             )}
-            <Button variant="outline" size="sm" onClick={handleShareWall}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleShareWall}
+              disabled={isRearrangeMode}
+            >
               <Share2 className="h-4 w-4 mr-2" />
               Share Wall
             </Button>
@@ -246,6 +368,16 @@ const CommunityWall = ({
             <AlertDescription>
               Thank you for your submission! It has been sent for review and
               will appear on the wall once approved.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {isRearrangeMode && (
+          <Alert className="mb-6">
+            <Move className="h-4 w-4" />
+            <AlertDescription>
+              Drag and drop entries to reorder them. Click "Save Order" when
+              finished or "Cancel" to discard changes.
             </AlertDescription>
           </Alert>
         )}
@@ -270,7 +402,8 @@ const CommunityWall = ({
                   <TabsTrigger value="list">List View</TabsTrigger>
                 </TabsList>
                 <p className="text-sm text-muted-foreground">
-                  {entries.length} entries
+                  {entries.length} entries{" "}
+                  {isRearrangeMode && "(Rearrange Mode)"}
                 </p>
               </div>
 
@@ -282,42 +415,82 @@ const CommunityWall = ({
                       : "grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
                   }`}
                 >
-                  {entries.map((entry, index) => (
-                    <Card
-                      key={entry.id}
-                      className="overflow-hidden cursor-pointer transition-transform hover:scale-[1.02]"
-                      onClick={() => handleImageClick(entry, index)}
-                    >
-                      <div
-                        className={`relative ${
-                          isMobile ? "aspect-square" : "aspect-[3/4]"
+                  {(isRearrangeMode ? reorderedEntries : entries).map(
+                    (entry, index) => (
+                      <Card
+                        key={entry.id}
+                        className={`overflow-hidden transition-transform ${
+                          isRearrangeMode
+                            ? "cursor-move border-2 border-dashed border-primary/50 hover:border-primary"
+                            : "cursor-pointer hover:scale-[1.02]"
                         }`}
+                        onClick={
+                          isRearrangeMode
+                            ? undefined
+                            : () => handleImageClick(entry, index)
+                        }
+                        draggable={isRearrangeMode}
+                        onDragStart={
+                          isRearrangeMode
+                            ? (e) => handleDragStart(e, index)
+                            : undefined
+                        }
+                        onDragOver={
+                          isRearrangeMode ? handleDragOver : undefined
+                        }
+                        onDrop={
+                          isRearrangeMode
+                            ? (e) => handleDrop(e, index)
+                            : undefined
+                        }
                       >
-                        <img
-                          src={entry.imageUrl}
-                          alt="Journal entry"
-                          className="object-cover w-full h-full"
-                          loading="lazy"
-                        />
-                        {!isMobile && (
-                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3">
-                            <div className="flex items-center justify-between">
-                              <span className="text-white text-xs">
-                                {new Date(entry.createdAt).toLocaleDateString()}
-                              </span>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="text-white p-0 h-auto"
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
+                        <div
+                          className={`relative ${
+                            isMobile ? "aspect-square" : "aspect-[3/4]"
+                          }`}
+                        >
+                          {isRearrangeMode && (
+                            <div className="absolute top-2 right-2 z-10 bg-white/90 rounded-full p-1">
+                              <GripVertical className="h-4 w-4 text-gray-600" />
                             </div>
-                          </div>
-                        )}
-                      </div>
-                    </Card>
-                  ))}
+                          )}
+                          <img
+                            src={entry.imageUrl}
+                            alt="Journal entry"
+                            className="object-cover w-full h-full"
+                            loading="lazy"
+                          />
+                          {!isMobile && !isRearrangeMode && (
+                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3">
+                              <div className="flex items-center justify-between">
+                                <span className="text-white text-xs">
+                                  {new Date(
+                                    entry.createdAt,
+                                  ).toLocaleDateString()}
+                                </span>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-white p-0 h-auto"
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                          {isRearrangeMode && (
+                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3">
+                              <div className="flex items-center justify-center">
+                                <span className="text-white text-xs font-medium">
+                                  Position {index + 1}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </Card>
+                    ),
+                  )}
                 </div>
               </TabsContent>
 
@@ -492,6 +665,35 @@ const CommunityWall = ({
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Settings Dialog */}
+      <Dialog open={showSettings} onOpenChange={setShowSettings}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Wall Settings</DialogTitle>
+            <DialogDescription>
+              Update the title, description, and privacy settings for this wall.
+            </DialogDescription>
+          </DialogHeader>
+          <WallCreationForm
+            initialData={
+              wallData
+                ? {
+                    title: wallData.title,
+                    description: wallData.description,
+                    isPrivate: wallData.is_private,
+                  }
+                : undefined
+            }
+            onSubmit={async (data) => {
+              await handleUpdateWall(data);
+              return { success: true };
+            }}
+            isEditMode={true}
+            onCancel={() => setShowSettings(false)}
+          />
         </DialogContent>
       </Dialog>
     </div>

@@ -9,6 +9,7 @@ import {
   Submission,
   Entry,
 } from "../lib/supabase";
+import { useToast } from "@/components/ui/use-toast";
 
 const WallPage = () => {
   const { wallId } = useParams<{ wallId: string }>();
@@ -18,6 +19,7 @@ const WallPage = () => {
   const [approvedEntries, setApprovedEntries] = useState<any[]>([]);
   const [directEntries, setDirectEntries] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
   // Load wall data and approved submissions
   useEffect(() => {
@@ -203,6 +205,45 @@ const WallPage = () => {
     }
   };
 
+  const handleUpdateWall = async (wallData: {
+    title: string;
+    description: string;
+    isPrivate: boolean;
+  }) => {
+    if (!wall) return;
+
+    try {
+      const updatedWall = await wallsApi.update(wall.id, {
+        title: wallData.title,
+        description: wallData.description,
+        is_private: wallData.isPrivate,
+      });
+
+      setWall(updatedWall);
+      toast({
+        title: "Success",
+        description: "Wall settings updated successfully.",
+      });
+    } catch (error) {
+      console.error("Error updating wall:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update wall settings.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleReorderEntries = async (reorderedEntries: any[]) => {
+    // For now, we'll just update the local state
+    // In a real implementation, you might want to store the order in the database
+    setApprovedEntries(reorderedEntries);
+    toast({
+      title: "Success",
+      description: "Entry order updated successfully.",
+    });
+  };
+
   if (loading) {
     return (
       <div className="bg-background min-h-screen flex items-center justify-center">
@@ -253,6 +294,18 @@ const WallPage = () => {
         isFirstVisit={!isAdminMode}
         onSubmitEntry={handleSubmitEntry}
         isAdminMode={isAdminMode}
+        onUpdateWall={handleUpdateWall}
+        onReorderEntries={handleReorderEntries}
+        wallData={
+          wall
+            ? {
+                id: wall.id,
+                title: wall.title,
+                description: wall.description,
+                is_private: wall.is_private,
+              }
+            : undefined
+        }
       />
     </div>
   );

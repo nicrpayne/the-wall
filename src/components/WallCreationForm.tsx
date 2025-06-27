@@ -32,6 +32,13 @@ interface WallCreationFormProps {
     shareableLink?: string;
     wallCode?: string;
   }>;
+  initialData?: {
+    title: string;
+    description: string;
+    isPrivate: boolean;
+  };
+  isEditMode?: boolean;
+  onCancel?: () => void;
 }
 
 const WallCreationForm = ({
@@ -41,10 +48,15 @@ const WallCreationForm = ({
     shareableLink: "https://example.com/wall/123",
     wallCode: "ABC123",
   }),
+  initialData,
+  isEditMode = false,
+  onCancel,
 }: WallCreationFormProps) => {
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [isPrivate, setIsPrivate] = useState(false);
+  const [title, setTitle] = useState(initialData?.title || "");
+  const [description, setDescription] = useState(
+    initialData?.description || "",
+  );
+  const [isPrivate, setIsPrivate] = useState(initialData?.isPrivate || false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [shareableLink, setShareableLink] = useState<string | null>(null);
@@ -57,11 +69,22 @@ const WallCreationForm = ({
 
     try {
       const result = await onSubmit({ title, description, isPrivate });
-      if (result.success && result.shareableLink && result.wallCode) {
-        setShareableLink(result.shareableLink);
-        setWallCode(result.wallCode);
+      if (result.success) {
+        if (isEditMode) {
+          // For edit mode, just close the dialog
+          resetForm();
+        } else if (result.shareableLink && result.wallCode) {
+          setShareableLink(result.shareableLink);
+          setWallCode(result.wallCode);
+        } else {
+          setError("Failed to create wall. Please try again.");
+        }
       } else {
-        setError("Failed to create wall. Please try again.");
+        setError(
+          isEditMode
+            ? "Failed to update wall. Please try again."
+            : "Failed to create wall. Please try again.",
+        );
       }
     } catch (err) {
       setError("An unexpected error occurred. Please try again.");
@@ -77,20 +100,37 @@ const WallCreationForm = ({
   };
 
   const resetForm = () => {
-    setTitle("");
-    setDescription("");
-    setIsPrivate(false);
+    if (isEditMode) {
+      setTitle(initialData?.title || "");
+      setDescription(initialData?.description || "");
+      setIsPrivate(initialData?.isPrivate || false);
+    } else {
+      setTitle("");
+      setDescription("");
+      setIsPrivate(false);
+    }
     setShareableLink(null);
     setWallCode(null);
     setError(null);
   };
 
+  const handleCancel = () => {
+    resetForm();
+    if (onCancel) {
+      onCancel();
+    }
+  };
+
   return (
     <Card className="w-full max-w-md mx-auto bg-white">
       <CardHeader>
-        <CardTitle>Create New Community Wall</CardTitle>
+        <CardTitle>
+          {isEditMode ? "Edit Wall Settings" : "Create New Community Wall"}
+        </CardTitle>
         <CardDescription>
-          Create a new wall for users to share their journal entries.
+          {isEditMode
+            ? "Update the settings for this community wall."
+            : "Create a new wall for users to share their journal entries."}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -218,12 +258,18 @@ const WallCreationForm = ({
             type="button"
             variant="outline"
             className="mr-2"
-            onClick={resetForm}
+            onClick={handleCancel}
           >
             Cancel
           </Button>
           <Button onClick={handleSubmit} disabled={isSubmitting}>
-            {isSubmitting ? "Creating..." : "Create Wall"}
+            {isSubmitting
+              ? isEditMode
+                ? "Updating..."
+                : "Creating..."
+              : isEditMode
+                ? "Update Wall"
+                : "Create Wall"}
           </Button>
         </CardFooter>
       )}
