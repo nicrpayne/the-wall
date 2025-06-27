@@ -90,6 +90,17 @@ const CommunityWall = ({
   const [reorderedEntries, setReorderedEntries] =
     useState<JournalEntry[]>(entries);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  // Handle rearrange mode activation - force switch to list view
+  const handleRearrangeModeToggle = (enabled: boolean) => {
+    setIsRearrangeMode(enabled);
+    if (enabled) {
+      // Force switch to list view when entering rearrange mode
+      setActiveTab("list");
+    }
+  };
 
   useEffect(() => {
     // Check local storage to see if user has already submitted to this wall
@@ -191,12 +202,33 @@ const CommunityWall = ({
   // Rearrange functionality
   const handleDragStart = (e: React.DragEvent, index: number) => {
     setDraggedIndex(index);
+    setIsDragging(true);
     e.dataTransfer.effectAllowed = "move";
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragOver = (e: React.DragEvent, index: number) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
+    if (draggedIndex !== index) {
+      setDragOverIndex(index);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    // Only clear drag over if we're actually leaving the element
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const x = e.clientX;
+    const y = e.clientY;
+
+    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+      setDragOverIndex(null);
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+    setIsDragging(false);
   };
 
   const handleDrop = (e: React.DragEvent, dropIndex: number) => {
@@ -210,12 +242,14 @@ const CommunityWall = ({
 
     setReorderedEntries(newEntries);
     setDraggedIndex(null);
+    setDragOverIndex(null);
+    setIsDragging(false);
   };
 
   const handleSaveRearrange = async () => {
     try {
       await onReorderEntries(reorderedEntries);
-      setIsRearrangeMode(false);
+      handleRearrangeModeToggle(false);
     } catch (error) {
       console.error("Error saving rearranged entries:", error);
     }
@@ -223,7 +257,7 @@ const CommunityWall = ({
 
   const handleCancelRearrange = () => {
     setReorderedEntries(entries);
-    setIsRearrangeMode(false);
+    handleRearrangeModeToggle(false);
   };
 
   // Swipe handlers for mobile navigation
@@ -310,15 +344,17 @@ const CommunityWall = ({
                 </Button>
                 {!isRearrangeMode ? (
                   <>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setIsRearrangeMode(true)}
-                      disabled={entries.length === 0}
-                    >
-                      <Move className="h-4 w-4 mr-2" />
-                      Rearrange
-                    </Button>
+                    {activeTab === "list" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleRearrangeModeToggle(true)}
+                        disabled={entries.length === 0}
+                      >
+                        <Move className="h-4 w-4 mr-2" />
+                        Rearrange
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"
@@ -392,18 +428,26 @@ const CommunityWall = ({
         ) : (
           <>
             <Tabs
-              defaultValue="grid"
+              value={activeTab}
               className="mb-6"
               onValueChange={setActiveTab}
             >
               <div className="flex justify-between items-center mb-4">
                 <TabsList>
-                  <TabsTrigger value="grid">Grid View</TabsTrigger>
+                  <TabsTrigger
+                    value="grid"
+                    disabled={isRearrangeMode}
+                    className={
+                      isRearrangeMode ? "opacity-50 cursor-not-allowed" : ""
+                    }
+                  >
+                    Grid View
+                  </TabsTrigger>
                   <TabsTrigger value="list">List View</TabsTrigger>
                 </TabsList>
                 <p className="text-sm text-muted-foreground">
                   {entries.length} entries{" "}
-                  {isRearrangeMode && "(Rearrange Mode)"}
+                  {isRearrangeMode && "(Rearrange Mode - List View Only)"}
                 </p>
               </div>
 
@@ -419,10 +463,16 @@ const CommunityWall = ({
                     (entry, index) => (
                       <Card
                         key={entry.id}
-                        className={`overflow-hidden transition-transform ${
+                        className={`overflow-hidden transition-all duration-200 ${
                           isRearrangeMode
-                            ? "cursor-move border-2 border-dashed border-primary/50 hover:border-primary"
-                            : "cursor-pointer hover:scale-[1.02]"
+                            ? `cursor-move ${
+                                draggedIndex === index
+                                  ? "opacity-50 border-primary border-2"
+                                  : dragOverIndex === index
+                                    ? "border-green-500 border-2"
+                                    : "border-dashed border-gray-300"
+                              }`
+                            : "cursor-pointer hover:shadow-md"
                         }`}
                         onClick={
                           isRearrangeMode
@@ -436,8 +486,16 @@ const CommunityWall = ({
                             : undefined
                         }
                         onDragOver={
-                          isRearrangeMode ? handleDragOver : undefined
+                          isRearrangeMode
+                            ? (e) => handleDragOver(e, index)
+                            : undefined
                         }
+                        onDragLeave={
+                          isRearrangeMode
+                            ? (e) => handleDragLeave(e)
+                            : undefined
+                        }
+                        onDragEnd={isRearrangeMode ? handleDragEnd : undefined}
                         onDrop={
                           isRearrangeMode
                             ? (e) => handleDrop(e, index)
@@ -450,7 +508,7 @@ const CommunityWall = ({
                           }`}
                         >
                           {isRearrangeMode && (
-                            <div className="absolute top-2 right-2 z-10 bg-white/90 rounded-full p-1">
+                            <div className="absolute top-2 right-2 z-10 bg-white/90 rounded-full p-1 shadow-sm">
                               <GripVertical className="h-4 w-4 text-gray-600" />
                             </div>
                           )}
@@ -482,7 +540,9 @@ const CommunityWall = ({
                             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3">
                               <div className="flex items-center justify-center">
                                 <span className="text-white text-xs font-medium">
-                                  Position {index + 1}
+                                  {dragOverIndex === index
+                                    ? "Drop Here"
+                                    : `Position ${index + 1}`}
                                 </span>
                               </div>
                             </div>
@@ -496,42 +556,101 @@ const CommunityWall = ({
 
               <TabsContent value="list" className="mt-0">
                 <div className="space-y-4">
-                  {entries.map((entry) => (
-                    <Card key={entry.id} className="overflow-hidden">
-                      <div
-                        className="flex flex-col md:flex-row cursor-pointer"
-                        onClick={() => handleImageClick(entry, index)}
+                  {(isRearrangeMode ? reorderedEntries : entries).map(
+                    (entry, index) => (
+                      <Card
+                        key={entry.id}
+                        className={`overflow-hidden transition-all duration-200 ${
+                          isRearrangeMode
+                            ? `cursor-move ${
+                                draggedIndex === index
+                                  ? "opacity-50 border-primary border-2"
+                                  : dragOverIndex === index
+                                    ? "border-green-500 border-2"
+                                    : "border-dashed border-gray-300"
+                              }`
+                            : ""
+                        }`}
+                        draggable={isRearrangeMode}
+                        onDragStart={
+                          isRearrangeMode
+                            ? (e) => handleDragStart(e, index)
+                            : undefined
+                        }
+                        onDragOver={
+                          isRearrangeMode
+                            ? (e) => handleDragOver(e, index)
+                            : undefined
+                        }
+                        onDragLeave={
+                          isRearrangeMode
+                            ? (e) => handleDragLeave(e)
+                            : undefined
+                        }
+                        onDragEnd={isRearrangeMode ? handleDragEnd : undefined}
+                        onDrop={
+                          isRearrangeMode
+                            ? (e) => handleDrop(e, index)
+                            : undefined
+                        }
                       >
-                        <div className="md:w-48 h-48 md:h-auto">
-                          <img
-                            src={entry.imageUrl}
-                            alt="Journal entry"
-                            className="object-cover w-full h-full"
-                            loading="lazy"
-                          />
-                        </div>
-                        <div className="p-4 flex flex-col justify-between flex-grow">
-                          <div>
-                            <p className="text-sm text-muted-foreground mb-2">
-                              Posted on{" "}
-                              {new Date(entry.createdAt).toLocaleDateString()}
-                            </p>
-                            <p className="line-clamp-3">
-                              Click to view this journal entry
-                            </p>
+                        <div
+                          className={`flex flex-col md:flex-row ${
+                            isRearrangeMode ? "" : "cursor-pointer"
+                          }`}
+                          onClick={
+                            isRearrangeMode
+                              ? undefined
+                              : () => handleImageClick(entry, index)
+                          }
+                        >
+                          <div className="md:w-48 h-48 md:h-auto relative">
+                            {isRearrangeMode && (
+                              <div className="absolute top-2 right-2 z-10 bg-white/90 rounded-full p-1 shadow-sm">
+                                <GripVertical className="h-4 w-4 text-gray-600" />
+                              </div>
+                            )}
+                            <img
+                              src={entry.imageUrl}
+                              alt="Journal entry"
+                              className="object-cover w-full h-full"
+                              loading="lazy"
+                            />
+                            {isRearrangeMode && (
+                              <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                                {dragOverIndex === index
+                                  ? "Drop Here"
+                                  : `Position ${index + 1}`}
+                              </div>
+                            )}
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="self-end"
-                          >
-                            <Eye className="h-4 w-4 mr-2" />
-                            View
-                          </Button>
+                          <div className="p-4 flex flex-col justify-between flex-grow">
+                            <div>
+                              <p className="text-sm text-muted-foreground mb-2">
+                                Posted on{" "}
+                                {new Date(entry.createdAt).toLocaleDateString()}
+                              </p>
+                              <p className="line-clamp-3">
+                                {isRearrangeMode
+                                  ? "Drag to reorder this journal entry"
+                                  : "Click to view this journal entry"}
+                              </p>
+                            </div>
+                            {!isRearrangeMode && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="self-end"
+                              >
+                                <Eye className="h-4 w-4 mr-2" />
+                                View
+                              </Button>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </Card>
-                  ))}
+                      </Card>
+                    ),
+                  )}
                 </div>
               </TabsContent>
             </Tabs>
