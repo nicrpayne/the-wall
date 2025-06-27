@@ -1,145 +1,113 @@
 import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import CommunityWall from "./CommunityWall";
-import { useSubmissions } from "../App";
+import { wallsApi, submissionsApi, Wall, Submission } from "../lib/supabase";
 
 const WallPage = () => {
   const { wallId } = useParams<{ wallId: string }>();
-  const { addSubmission, submissions } = useSubmissions();
+  const [wall, setWall] = useState<Wall | null>(null);
   const [approvedEntries, setApprovedEntries] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Transform approved submissions into the format expected by CommunityWall
+  // Load wall data and approved submissions
   useEffect(() => {
-    const wallSubmissions = submissions.filter(
-      (submission) =>
-        submission.wallId === wallId && submission.status === "approved",
-    );
+    const loadWallData = async () => {
+      if (!wallId) return;
 
-    const transformedEntries = wallSubmissions.map((submission) => ({
-      id: submission.id,
-      imageUrl: submission.imageUrl,
-      createdAt: submission.submittedAt,
-      approved: true,
-    }));
-
-    setApprovedEntries(transformedEntries);
-  }, [submissions, wallId]);
-
-  // Listen for storage changes to update entries in real-time
-  useEffect(() => {
-    const handleStorageChange = () => {
-      // Re-fetch submissions from localStorage when changes occur
       try {
-        const stored = localStorage.getItem("journal-submissions");
-        if (stored) {
-          const parsedSubmissions = JSON.parse(stored);
-          const wallSubmissions = parsedSubmissions.filter(
-            (submission: any) =>
-              submission.wallId === wallId && submission.status === "approved",
-          );
+        setLoading(true);
+        const [wallsData, submissionsData] = await Promise.all([
+          wallsApi.getAll(),
+          submissionsApi.getAll(),
+        ]);
 
-          const transformedEntries = wallSubmissions.map((submission: any) => ({
-            id: submission.id,
-            imageUrl: submission.imageUrl,
-            createdAt: submission.submittedAt,
-            approved: true,
-          }));
+        // Find the wall by ID
+        const currentWall = wallsData.find((w) => w.id === wallId);
+        setWall(currentWall || null);
 
-          setApprovedEntries(transformedEntries);
-        }
-      } catch (error) {
-        console.error("Error parsing submissions from storage:", error);
-      }
-    };
-
-    const handleCustomEvent = (e: CustomEvent) => {
-      if (e.detail?.submissions) {
-        const wallSubmissions = e.detail.submissions.filter(
-          (submission: any) =>
-            submission.wallId === wallId && submission.status === "approved",
+        // Filter and transform approved submissions for this wall
+        const wallSubmissions = submissionsData.filter(
+          (submission) =>
+            submission.wall_id === wallId && submission.status === "approved",
         );
 
-        const transformedEntries = wallSubmissions.map((submission: any) => ({
+        const transformedEntries = wallSubmissions.map((submission) => ({
           id: submission.id,
-          imageUrl: submission.imageUrl,
-          createdAt: submission.submittedAt,
+          imageUrl: submission.image_url,
+          createdAt: submission.submitted_at,
           approved: true,
         }));
 
         setApprovedEntries(transformedEntries);
+      } catch (error) {
+        console.error("Error loading wall data:", error);
+      } finally {
+        setLoading(false);
       }
     };
 
-    window.addEventListener("storage", handleStorageChange);
-    window.addEventListener(
-      "submissions-updated",
-      handleCustomEvent as EventListener,
-    );
-
-    return () => {
-      window.removeEventListener("storage", handleStorageChange);
-      window.removeEventListener(
-        "submissions-updated",
-        handleCustomEvent as EventListener,
-      );
-    };
+    loadWallData();
   }, [wallId]);
 
-  // In a real app, you would fetch wall data based on wallId
-  // For now, we'll use mock data and determine wall info from the ID
-  const getWallInfo = (id: string) => {
-    // Mock wall data - in a real app this would come from your backend
-    const mockWalls = {
-      "wall-gratitude": {
-        title: "Gratitude Journal",
-        description: "Share what you're grateful for today",
-      },
-      "wall-reflections": {
-        title: "Daily Reflections",
-        description: "End of day thoughts and reflections",
-      },
-      "wall-creative": {
-        title: "Creative Writing",
-        description: "Share your poetry, short stories, or creative writing",
-      },
-    };
-
-    // Check if it's one of our predefined walls or a newly created one
-    if (mockWalls[id as keyof typeof mockWalls]) {
-      return mockWalls[id as keyof typeof mockWalls];
-    }
-
-    // For newly created walls, return a generic response
-    return {
-      title: "Community Journal Wall",
-      description:
-        "Share your thoughts and reflections with the community. All entries are anonymous.",
-    };
-  };
-
-  const wallInfo = getWallInfo(wallId || "");
+  // Get wall info from loaded data or provide defaults
+  const wallInfo = wall
+    ? {
+        title: wall.title,
+        description: wall.description,
+      }
+    : {
+        title: "Community Journal Wall",
+        description:
+          "Share your thoughts and reflections with the community. All entries are anonymous.",
+      };
 
   const handleSubmitEntry = async (file: File) => {
-    // Mock submission - in a real app this would upload to your backend
-    console.log("Submitting entry for wall:", wallId, file);
+    if (!wallId) {
+      alert("Error: Wall ID not found");
+      return;
+    }
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    try {
+      // Upload image to Supabase storage
+      const imageUrl = await submissionsApi.uploadImage(file);
 
-    // Create a mock image URL from the file
-    const imageUrl = URL.createObjectURL(file);
+      // Create submission record
+      await submissionsApi.create({
+        wall_id: wallId,
+        image_url: imageUrl,
+        status: "pending",
+      });
 
-    // Add submission to global state
-    addSubmission({
-      wallId: wallId || "unknown",
-      wallTitle: wallInfo.title,
-      imageUrl: imageUrl,
-      status: "pending",
-    });
-
-    // In a real app, you would send this to your backend for moderation
-    alert("Your journal entry has been submitted for review!");
+      alert("Your journal entry has been submitted for review!");
+    } catch (error) {
+      console.error("Error submitting entry:", error);
+      alert("Failed to submit your entry. Please try again.");
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="bg-background min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p>Loading wall...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!wall && !loading) {
+    return (
+      <div className="bg-background min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-2">Wall Not Found</h1>
+          <p className="text-muted-foreground">
+            The requested wall could not be found.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-background min-h-screen">

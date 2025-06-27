@@ -36,26 +36,15 @@ import {
   Eye,
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
-import { useSubmissions } from "../App";
+import {
+  wallsApi,
+  submissionsApi,
+  Wall,
+  Submission,
+  subscribeToSubmissions,
+} from "../lib/supabase";
 import WallCreationForm from "./WallCreationForm";
 import ZoomableImage from "./ZoomableImage";
-
-interface Wall {
-  id: string;
-  title: string;
-  description: string;
-  createdAt: string;
-  shareableLink: string;
-}
-
-interface Submission {
-  id: string;
-  wallId: string;
-  wallTitle: string;
-  imageUrl: string;
-  status: "pending" | "approved" | "rejected";
-  submittedAt: string;
-}
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState("walls");
@@ -63,74 +52,81 @@ const AdminDashboard = () => {
   const [selectedSubmission, setSelectedSubmission] =
     useState<Submission | null>(null);
   const { toast } = useToast();
-  const { submissions: globalSubmissions } = useSubmissions();
+  const [walls, setWalls] = useState<Wall[]>([]);
+  const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [loading, setLoading] = useState(true);
   const [previousSubmissionCount, setPreviousSubmissionCount] = useState(0);
 
-  // Mock data for walls
-  const [walls, setWalls] = useState<Wall[]>([
-    {
-      id: "1",
-      title: "Gratitude Journal",
-      description: "Share what you're grateful for today",
-      createdAt: "2023-06-15",
-      shareableLink: "https://journal-wall.com/wall/gratitude-123",
-    },
-    {
-      id: "2",
-      title: "Daily Reflections",
-      description: "End of day thoughts and reflections",
-      createdAt: "2023-07-02",
-      shareableLink: "https://journal-wall.com/wall/reflections-456",
-    },
-    {
-      id: "3",
-      title: "Creative Writing",
-      description: "Share your poetry, short stories, or creative writing",
-      createdAt: "2023-08-10",
-      shareableLink: "https://journal-wall.com/wall/creative-789",
-    },
-  ]);
+  // Load data on component mount
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        const [wallsData, submissionsData] = await Promise.all([
+          wallsApi.getAll(),
+          submissionsApi.getAll(),
+        ]);
+        setWalls(wallsData);
+        setSubmissions(submissionsData);
+        setPreviousSubmissionCount(submissionsData.length);
+      } catch (error) {
+        console.error("Error loading data:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load data. Please refresh the page.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+
+    // Subscribe to real-time updates
+    const subscription = subscribeToSubmissions((updatedSubmissions) => {
+      setSubmissions(updatedSubmissions);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [toast]);
 
   // Helper functions to calculate submission counts dynamically
   const getSubmissionCount = (wallId: string) => {
     return submissions.filter(
       (submission) =>
-        submission.wallId === wallId && submission.status === "approved",
+        submission.wall_id === wallId && submission.status === "approved",
     ).length;
   };
 
   const getPendingCount = (wallId: string) => {
     return submissions.filter(
       (submission) =>
-        submission.wallId === wallId && submission.status === "pending",
+        submission.wall_id === wallId && submission.status === "pending",
     ).length;
   };
 
-  // Use global submissions directly from context
-  const submissions = globalSubmissions;
+  // Calculate pending submissions
+  const pendingSubmissions = submissions.filter(
+    (submission) => submission.status === "pending",
+  );
 
   // Show toast notification for new submissions
   useEffect(() => {
     if (
-      globalSubmissions.length > previousSubmissionCount &&
+      submissions.length > previousSubmissionCount &&
       previousSubmissionCount > 0
     ) {
-      const newSubmissionsCount =
-        globalSubmissions.length - previousSubmissionCount;
+      const newSubmissionsCount = submissions.length - previousSubmissionCount;
       toast({
         title: "New Submission!",
         description: `${newSubmissionsCount} new journal ${newSubmissionsCount === 1 ? "entry" : "entries"} submitted for review.`,
       });
     }
-    setPreviousSubmissionCount(globalSubmissions.length);
-  }, [globalSubmissions, previousSubmissionCount, toast]);
-
-  // Initialize previous count after first render to avoid false notifications
-  useEffect(() => {
-    if (previousSubmissionCount === 0) {
-      setPreviousSubmissionCount(globalSubmissions.length);
-    }
-  }, [globalSubmissions.length, previousSubmissionCount]);
+    setPreviousSubmissionCount(submissions.length);
+  }, [submissions.length, previousSubmissionCount, toast]);
 
   const generateWallCode = () => {
     // Generate a 6-character alphanumeric code
@@ -147,85 +143,106 @@ const AdminDashboard = () => {
     description: string;
     isPrivate: boolean;
   }) => {
-    const wallId = `wall-${Date.now()}`;
-    const shareableLink = `${window.location.origin}/wall/${wallId}`;
-    const wallCode = generateWallCode();
-
-    const wall: Wall = {
-      id: wallId,
-      title: wallData.title,
-      description: wallData.description,
-      createdAt: new Date().toISOString().split("T")[0],
-      shareableLink,
-    };
-
-    setWalls([...walls, wall]);
-    // Don't close the dialog immediately - let the form show the success state
-    // setIsCreateWallDialogOpen(false);
-
-    return {
-      success: true,
-      wallId: wall.id,
-      shareableLink: wall.shareableLink,
-      wallCode: wallCode,
-    };
-  };
-
-  const handleDeleteWall = (id: string) => {
-    setWalls(walls.filter((wall) => wall.id !== id));
-  };
-
-  const handleApproveSubmission = (id: string) => {
-    // Update the submission status in localStorage directly
-    const updatedSubmissions = submissions.map((submission) =>
-      submission.id === id
-        ? { ...submission, status: "approved" as const }
-        : submission,
-    );
-
     try {
-      localStorage.setItem(
-        "journal-submissions",
-        JSON.stringify(updatedSubmissions),
-      );
-      // Dispatch custom event to notify other windows
-      window.dispatchEvent(
-        new CustomEvent("submissions-updated", {
-          detail: { submissions: updatedSubmissions },
-        }),
-      );
+      const wallCode = generateWallCode();
+      const wallId = crypto.randomUUID();
+      const shareableLink = `${window.location.origin}/wall/${wallId}`;
+
+      const newWall = await wallsApi.create({
+        title: wallData.title,
+        description: wallData.description,
+        wall_code: wallCode,
+        shareable_link: shareableLink,
+        is_private: wallData.isPrivate,
+      });
+
+      setWalls([newWall, ...walls]);
+
+      return {
+        success: true,
+        wallId: newWall.id,
+        shareableLink: newWall.shareable_link,
+        wallCode: newWall.wall_code,
+      };
     } catch (error) {
-      console.error("Error updating submission status:", error);
+      console.error("Error creating wall:", error);
+      toast({
+        title: "Error",
+        description: "Failed to create wall. Please try again.",
+        variant: "destructive",
+      });
+      return {
+        success: false,
+        error: "Failed to create wall",
+      };
     }
   };
 
-  const handleRejectSubmission = (id: string) => {
-    // Update the submission status in localStorage directly
-    const updatedSubmissions = submissions.map((submission) =>
-      submission.id === id
-        ? { ...submission, status: "rejected" as const }
-        : submission,
-    );
-
+  const handleDeleteWall = async (id: string) => {
     try {
-      localStorage.setItem(
-        "journal-submissions",
-        JSON.stringify(updatedSubmissions),
-      );
-      // Dispatch custom event to notify other windows
-      window.dispatchEvent(
-        new CustomEvent("submissions-updated", {
-          detail: { submissions: updatedSubmissions },
-        }),
-      );
+      await wallsApi.delete(id);
+      setWalls(walls.filter((wall) => wall.id !== id));
+      toast({
+        title: "Success",
+        description: "Wall deleted successfully.",
+      });
     } catch (error) {
-      console.error("Error updating submission status:", error);
+      console.error("Error deleting wall:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete wall. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
-  const pendingSubmissions = submissions.filter(
-    (submission) => submission.status === "pending",
-  );
+  const handleApproveSubmission = async (id: string) => {
+    try {
+      await submissionsApi.updateStatus(id, "approved");
+      setSubmissions(
+        submissions.map((submission) =>
+          submission.id === id
+            ? { ...submission, status: "approved" as const }
+            : submission,
+        ),
+      );
+      toast({
+        title: "Success",
+        description: "Submission approved successfully.",
+      });
+    } catch (error) {
+      console.error("Error approving submission:", error);
+      toast({
+        title: "Error",
+        description: "Failed to approve submission. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRejectSubmission = async (id: string) => {
+    try {
+      await submissionsApi.updateStatus(id, "rejected");
+      setSubmissions(
+        submissions.map((submission) =>
+          submission.id === id
+            ? { ...submission, status: "rejected" as const }
+            : submission,
+        ),
+      );
+      toast({
+        title: "Success",
+        description: "Submission rejected.",
+      });
+    } catch (error) {
+      console.error("Error rejecting submission:", error);
+      toast({
+        title: "Error",
+        description: "Failed to reject submission. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <div className="container mx-auto p-4 bg-background">
@@ -290,7 +307,9 @@ const AdminDashboard = () => {
                           <span className="text-sm text-muted-foreground">
                             Created
                           </span>
-                          <span>{wall.createdAt}</span>
+                          <span>
+                            {new Date(wall.created_at).toLocaleDateString()}
+                          </span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-sm text-muted-foreground">
@@ -334,8 +353,11 @@ const AdminDashboard = () => {
                         variant="ghost"
                         size="sm"
                         onClick={() => {
-                          navigator.clipboard.writeText(wall.shareableLink);
-                          alert("Wall link copied to clipboard!");
+                          navigator.clipboard.writeText(wall.shareable_link);
+                          toast({
+                            title: "Success",
+                            description: "Wall link copied to clipboard!",
+                          });
                         }}
                       >
                         <ExternalLink className="h-4 w-4 mr-1" />
@@ -381,7 +403,7 @@ const AdminDashboard = () => {
                               onClick={() => setSelectedSubmission(submission)}
                             >
                               <img
-                                src={submission.imageUrl}
+                                src={submission.image_url}
                                 alt="Journal submission"
                                 className="absolute inset-0 w-full h-full object-cover"
                               />
@@ -390,8 +412,12 @@ const AdminDashboard = () => {
                               </div>
                             </div>
                           </TableCell>
-                          <TableCell>{submission.wallTitle}</TableCell>
-                          <TableCell>{submission.submittedAt}</TableCell>
+                          <TableCell>{submission.wall_title}</TableCell>
+                          <TableCell>
+                            {new Date(
+                              submission.submitted_at,
+                            ).toLocaleDateString()}
+                          </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end space-x-2">
                               <Button
@@ -459,8 +485,10 @@ const AdminDashboard = () => {
             <DialogDescription>
               {selectedSubmission && (
                 <span>
-                  Submitted to &quot;{selectedSubmission.wallTitle}&quot; on{" "}
-                  {selectedSubmission.submittedAt}
+                  Submitted to &quot;{selectedSubmission.wall_title}&quot; on{" "}
+                  {new Date(
+                    selectedSubmission.submitted_at,
+                  ).toLocaleDateString()}
                 </span>
               )}
             </DialogDescription>
@@ -469,7 +497,7 @@ const AdminDashboard = () => {
             <div className="mt-4">
               <div className="h-[60vh] mb-4">
                 <ZoomableImage
-                  src={selectedSubmission.imageUrl}
+                  src={selectedSubmission.image_url}
                   alt="Journal submission for review"
                   className="w-full h-full"
                 />

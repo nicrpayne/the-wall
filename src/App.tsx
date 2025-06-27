@@ -98,38 +98,73 @@ const SubmissionProvider = ({ children }: { children: ReactNode }) => {
 
   // Save to localStorage whenever submissions change
   useEffect(() => {
+    console.log(
+      "🟡 [SubmissionProvider] useEffect triggered - submissions changed:",
+      submissions.length,
+      "submissions",
+    );
+    console.log("🟡 [SubmissionProvider] Full submissions array:", submissions);
+
     try {
-      localStorage.setItem("journal-submissions", JSON.stringify(submissions));
+      const serialized = JSON.stringify(submissions);
+      localStorage.setItem("journal-submissions", serialized);
+      console.log("🟡 [SubmissionProvider] Saved to localStorage successfully");
+
       // Dispatch custom event to notify other windows
       window.dispatchEvent(
         new CustomEvent("submissions-updated", {
           detail: { submissions },
         }),
       );
+      console.log(
+        "🟡 [SubmissionProvider] Dispatched submissions-updated event",
+      );
     } catch (error) {
-      console.error("Error saving submissions to localStorage:", error);
+      console.error(
+        "🔴 [SubmissionProvider] Error saving submissions to localStorage:",
+        error,
+      );
     }
   }, [submissions]);
 
   // Listen for storage changes from other windows
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
+      console.log(
+        "🟣 [SubmissionProvider] Storage event received:",
+        e.key,
+        e.newValue?.length || 0,
+        "chars",
+      );
       if (e.key === "journal-submissions" && e.newValue) {
         try {
           const newSubmissions = JSON.parse(e.newValue);
+          console.log(
+            "🟣 [SubmissionProvider] Parsed submissions from storage:",
+            newSubmissions.length,
+          );
           setSubmissions(newSubmissions);
         } catch (error) {
-          console.error("Error parsing submissions from storage event:", error);
+          console.error(
+            "🔴 [SubmissionProvider] Error parsing submissions from storage event:",
+            error,
+          );
         }
       }
     };
 
     const handleCustomEvent = (e: CustomEvent) => {
+      console.log(
+        "🟣 [SubmissionProvider] Custom event received:",
+        e.detail?.submissions?.length || 0,
+        "submissions",
+      );
       if (e.detail?.submissions) {
         setSubmissions(e.detail.submissions);
       }
     };
 
+    console.log("🟣 [SubmissionProvider] Setting up event listeners");
     window.addEventListener("storage", handleStorageChange);
     window.addEventListener(
       "submissions-updated",
@@ -137,6 +172,7 @@ const SubmissionProvider = ({ children }: { children: ReactNode }) => {
     );
 
     return () => {
+      console.log("🟣 [SubmissionProvider] Cleaning up event listeners");
       window.removeEventListener("storage", handleStorageChange);
       window.removeEventListener(
         "submissions-updated",
@@ -148,12 +184,36 @@ const SubmissionProvider = ({ children }: { children: ReactNode }) => {
   const addSubmission = (
     newSubmission: Omit<Submission, "id" | "submittedAt">,
   ) => {
+    console.log(
+      "🔵 [SubmissionProvider] addSubmission called with:",
+      newSubmission,
+    );
     const submission: Submission = {
       ...newSubmission,
       id: `submission-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       submittedAt: new Date().toISOString().split("T")[0],
     };
-    setSubmissions((prev) => [submission, ...prev]);
+    console.log(
+      "🔵 [SubmissionProvider] Created submission object:",
+      submission,
+    );
+
+    setSubmissions((prev) => {
+      console.log(
+        "🔵 [SubmissionProvider] Previous submissions count:",
+        prev.length,
+      );
+      const newSubmissions = [submission, ...prev];
+      console.log(
+        "🔵 [SubmissionProvider] New submissions count:",
+        newSubmissions.length,
+      );
+      console.log(
+        "🔵 [SubmissionProvider] New submissions array:",
+        newSubmissions,
+      );
+      return newSubmissions;
+    });
   };
 
   return (

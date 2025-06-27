@@ -228,7 +228,7 @@ const JournalUploader = ({
           if (!open) stopCamera();
         }}
       >
-        <DialogContent className="max-w-full max-h-full w-screen h-screen p-0 m-0 sm:max-w-full sm:max-h-full">
+        <DialogContent className="max-w-full max-h-full w-screen h-screen p-0 m-0 sm:max-w-full sm:max-h-full overflow-hidden">
           <div className="flex flex-col h-full">
             <DialogHeader className="p-4 pb-2">
               <DialogTitle>Take a Photo</DialogTitle>
@@ -237,7 +237,10 @@ const JournalUploader = ({
               </DialogDescription>
             </DialogHeader>
 
-            <div className="flex-1 relative bg-black">
+            <div
+              className="flex-1 relative bg-black overflow-hidden"
+              style={{ minHeight: "0" }}
+            >
               <video
                 ref={videoRef}
                 autoPlay
@@ -254,32 +257,40 @@ const JournalUploader = ({
                 <div className="absolute bottom-2 right-2 w-4 h-4 border-r-2 border-b-2 border-white"></div>
               </div>
 
-              {/* Instructions overlay */}
-              <div className="absolute bottom-20 left-0 right-0 text-center">
-                <p className="text-white text-sm bg-black/50 px-4 py-2 rounded-full mx-4">
-                  Position your journal page within the frame
+              {/* Floating Capture Button - Prominent and Always Visible */}
+              <div className="absolute bottom-16 sm:bottom-12 left-1/2 transform -translate-x-1/2 z-10 pb-safe">
+                <Button
+                  onClick={capturePhoto}
+                  className="w-24 h-24 sm:w-20 sm:h-20 rounded-full bg-white text-black hover:bg-white/90 shadow-2xl border-4 border-white/20 flex items-center justify-center text-3xl sm:text-2xl touch-manipulation"
+                  size="lg"
+                  style={{ minHeight: "96px", minWidth: "96px" }}
+                >
+                  •
+                </Button>
+              </div>
+
+              {/* Cancel Button - Top Left */}
+              <div className="absolute top-4 left-4 z-10">
+                <Button
+                  variant="outline"
+                  onClick={stopCamera}
+                  className="bg-black/50 border-white/20 text-white hover:bg-black/70 backdrop-blur-sm"
+                  size="sm"
+                >
+                  ✕ Cancel
+                </Button>
+              </div>
+
+              {/* Instructions overlay - Moved higher to avoid capture button */}
+              <div className="absolute bottom-40 sm:bottom-36 left-0 right-0 text-center px-4">
+                <p className="text-white text-sm sm:text-base bg-black/70 px-4 py-3 rounded-full mx-auto max-w-xs backdrop-blur-sm">
+                  Position your journal page within the frame, then tap the
+                  camera button
                 </p>
               </div>
             </div>
 
             <canvas ref={canvasRef} className="hidden" />
-
-            <DialogFooter className="p-4 pt-2 flex-row justify-between bg-black">
-              <Button
-                variant="outline"
-                onClick={stopCamera}
-                className="bg-white/10 border-white/20 text-white hover:bg-white/20"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={capturePhoto}
-                className="bg-white text-black hover:bg-white/90"
-                size="lg"
-              >
-                📸 Capture
-              </Button>
-            </DialogFooter>
           </div>
         </DialogContent>
       </Dialog>
