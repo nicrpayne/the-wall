@@ -312,6 +312,14 @@ const AdminDashboard = () => {
                       <div className="space-y-2">
                         <div className="flex justify-between">
                           <span className="text-sm text-muted-foreground">
+                            Wall Code
+                          </span>
+                          <span className="font-mono font-semibold">
+                            {wall.wall_code}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">
                             Created
                           </span>
                           <span>
