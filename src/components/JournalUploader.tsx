@@ -53,17 +53,29 @@ const JournalUploader = ({
 
   const startCamera = async () => {
     try {
+      // Set camera active first to show the dialog
+      setIsCameraActive(true);
+
       const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
+        video: {
+          facingMode: "environment",
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
       });
 
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
         setStream(mediaStream);
-        setIsCameraActive(true);
+        // Wait for video to load
+        videoRef.current.onloadedmetadata = () => {
+          videoRef.current?.play();
+        };
       }
     } catch (error) {
       console.error("Error accessing camera:", error);
+      setIsCameraActive(false);
+      alert("Unable to access camera. Please check permissions and try again.");
     }
   };
 
@@ -216,28 +228,59 @@ const JournalUploader = ({
           if (!open) stopCamera();
         }}
       >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Take a Photo</DialogTitle>
-            <DialogDescription>
-              Position your journal page clearly in the frame
-            </DialogDescription>
-          </DialogHeader>
-          <div className="relative aspect-video w-full overflow-hidden rounded-md">
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              className="w-full h-full object-cover"
-            />
+        <DialogContent className="max-w-full max-h-full w-screen h-screen p-0 m-0 sm:max-w-full sm:max-h-full">
+          <div className="flex flex-col h-full">
+            <DialogHeader className="p-4 pb-2">
+              <DialogTitle>Take a Photo</DialogTitle>
+              <DialogDescription>
+                Position your journal page clearly in the frame
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="flex-1 relative bg-black">
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-full object-cover"
+              />
+
+              {/* Camera overlay guide */}
+              <div className="absolute inset-4 border-2 border-white/50 rounded-lg pointer-events-none">
+                <div className="absolute top-2 left-2 w-4 h-4 border-l-2 border-t-2 border-white"></div>
+                <div className="absolute top-2 right-2 w-4 h-4 border-r-2 border-t-2 border-white"></div>
+                <div className="absolute bottom-2 left-2 w-4 h-4 border-l-2 border-b-2 border-white"></div>
+                <div className="absolute bottom-2 right-2 w-4 h-4 border-r-2 border-b-2 border-white"></div>
+              </div>
+
+              {/* Instructions overlay */}
+              <div className="absolute bottom-20 left-0 right-0 text-center">
+                <p className="text-white text-sm bg-black/50 px-4 py-2 rounded-full mx-4">
+                  Position your journal page within the frame
+                </p>
+              </div>
+            </div>
+
+            <canvas ref={canvasRef} className="hidden" />
+
+            <DialogFooter className="p-4 pt-2 flex-row justify-between bg-black">
+              <Button
+                variant="outline"
+                onClick={stopCamera}
+                className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={capturePhoto}
+                className="bg-white text-black hover:bg-white/90"
+                size="lg"
+              >
+                📸 Capture
+              </Button>
+            </DialogFooter>
           </div>
-          <canvas ref={canvasRef} className="hidden" />
-          <DialogFooter className="sm:justify-between">
-            <Button variant="outline" onClick={stopCamera}>
-              Cancel
-            </Button>
-            <Button onClick={capturePhoto}>Capture</Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

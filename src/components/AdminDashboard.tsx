@@ -132,6 +132,16 @@ const AdminDashboard = () => {
     }
   }, [globalSubmissions.length, previousSubmissionCount]);
 
+  const generateWallCode = () => {
+    // Generate a 6-character alphanumeric code
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    let result = "";
+    for (let i = 0; i < 6; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+  };
+
   const handleCreateWall = async (wallData: {
     title: string;
     description: string;
@@ -139,6 +149,7 @@ const AdminDashboard = () => {
   }) => {
     const wallId = `wall-${Date.now()}`;
     const shareableLink = `${window.location.origin}/wall/${wallId}`;
+    const wallCode = generateWallCode();
 
     const wall: Wall = {
       id: wallId,
@@ -149,12 +160,14 @@ const AdminDashboard = () => {
     };
 
     setWalls([...walls, wall]);
-    setIsCreateWallDialogOpen(false);
+    // Don't close the dialog immediately - let the form show the success state
+    // setIsCreateWallDialogOpen(false);
 
     return {
       success: true,
       wallId: wall.id,
       shareableLink: wall.shareableLink,
+      wallCode: wallCode,
     };
   };
 

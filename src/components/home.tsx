@@ -20,6 +20,9 @@ const Home = () => {
   const [password, setPassword] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(false);
 
+  // State for wall access
+  const [wallInput, setWallInput] = React.useState("");
+
   // Handle login form submission
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,15 +35,36 @@ const Home = () => {
     }, 1500);
   };
 
+  // Handle wall access
+  const handleWallAccess = () => {
+    if (!wallInput.trim()) return;
+
+    // Check if it's a URL or a code
+    if (wallInput.includes("http") || wallInput.includes("/wall/")) {
+      // It's a URL - extract the wall ID
+      const urlParts = wallInput.split("/wall/");
+      if (urlParts.length > 1) {
+        const wallId = urlParts[1].split("?")[0]; // Remove any query parameters
+        window.location.href = `/wall/${wallId}`;
+      }
+    } else {
+      // It's a code - convert to wall ID (in a real app, you'd look this up in your backend)
+      // For now, we'll use the code as the wall ID
+      window.location.href = `/wall/${wallInput}`;
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold">Journal Wall</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">Journal Wall</h1>
           <nav>
-            <Button variant="ghost" asChild>
-              <Link to="/about">About</Link>
+            <Button variant="ghost" size="sm" asChild>
+              <Link to="/about" className="text-sm">
+                About
+              </Link>
             </Button>
           </nav>
         </div>
@@ -48,26 +72,26 @@ const Home = () => {
 
       {/* Main content */}
       <main className="flex-1 container mx-auto px-4 py-8">
-        <div className="max-w-6xl mx-auto grid gap-8 md:grid-cols-2 items-center">
+        <div className="max-w-6xl mx-auto grid gap-8 lg:grid-cols-2 items-start">
           {/* Left column - App description */}
           <div className="space-y-6">
             <div>
-              <h2 className="text-3xl font-bold tracking-tight">
+              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight leading-tight">
                 Anonymous Journal Sharing
               </h2>
-              <p className="text-muted-foreground mt-2">
+              <p className="text-muted-foreground mt-2 text-sm sm:text-base">
                 Share your handwritten journal entries anonymously through
                 community walls.
               </p>
             </div>
 
             <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="bg-primary/10 p-2 rounded-full">
+              <div className="flex items-start gap-3">
+                <div className="bg-primary/10 p-2 rounded-full flex-shrink-0">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
+                    width="20"
+                    height="20"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
@@ -80,20 +104,22 @@ const Home = () => {
                     <polyline points="14 2 14 8 20 8" />
                   </svg>
                 </div>
-                <div>
-                  <h3 className="font-medium">Anonymous Sharing</h3>
-                  <p className="text-sm text-muted-foreground">
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-medium text-sm sm:text-base">
+                    Anonymous Sharing
+                  </h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
                     No accounts required. Share your thoughts freely.
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
-                <div className="bg-primary/10 p-2 rounded-full">
+              <div className="flex items-start gap-3">
+                <div className="bg-primary/10 p-2 rounded-full flex-shrink-0">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
+                    width="20"
+                    height="20"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
@@ -108,20 +134,22 @@ const Home = () => {
                     <path d="M11 16h4" />
                   </svg>
                 </div>
-                <div>
-                  <h3 className="font-medium">Community Walls</h3>
-                  <p className="text-sm text-muted-foreground">
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-medium text-sm sm:text-base">
+                    Community Walls
+                  </h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
                     Curated collections of journal entries.
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
-                <div className="bg-primary/10 p-2 rounded-full">
+              <div className="flex items-start gap-3">
+                <div className="bg-primary/10 p-2 rounded-full flex-shrink-0">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
+                    width="20"
+                    height="20"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
@@ -134,37 +162,52 @@ const Home = () => {
                     <circle cx="12" cy="13" r="3" />
                   </svg>
                 </div>
-                <div>
-                  <h3 className="font-medium">Mobile-Optimized</h3>
-                  <p className="text-sm text-muted-foreground">
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-medium text-sm sm:text-base">
+                    Mobile-Optimized
+                  </h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
                     Easily capture and upload journal pages from any device.
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-muted p-6 rounded-lg">
-              <h3 className="font-medium mb-2">Have a wall link?</h3>
-              <p className="text-sm text-muted-foreground mb-4">
+            <div className="bg-muted p-4 sm:p-6 rounded-lg">
+              <h3 className="font-medium mb-2 text-sm sm:text-base">
+                Have a wall link?
+              </h3>
+              <p className="text-xs sm:text-sm text-muted-foreground mb-4">
                 Enter the unique wall code or paste the full URL below to access
                 a community wall.
               </p>
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <Input
                   placeholder="Enter wall code or URL"
-                  className="flex-1"
+                  className="flex-1 text-sm"
+                  value={wallInput}
+                  onChange={(e) => setWallInput(e.target.value)}
+                  onKeyPress={(e) => e.key === "Enter" && handleWallAccess()}
                 />
-                <Button>Go to Wall</Button>
+                <Button
+                  onClick={handleWallAccess}
+                  disabled={!wallInput.trim()}
+                  className="w-full sm:w-auto text-sm"
+                >
+                  Go to Wall
+                </Button>
               </div>
             </div>
           </div>
 
           {/* Right column - Admin login */}
-          <div>
+          <div className="w-full">
             <Card className="border shadow-md">
               <CardHeader>
-                <CardTitle>Admin Access</CardTitle>
-                <CardDescription>
+                <CardTitle className="text-lg sm:text-xl">
+                  Admin Access
+                </CardTitle>
+                <CardDescription className="text-sm">
                   Log in to create and manage community walls, and review
                   submissions.
                 </CardDescription>
@@ -239,26 +282,26 @@ const Home = () => {
       {/* Footer */}
       <footer className="border-t bg-muted/40">
         <div className="container mx-auto px-4 py-6">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <p className="text-sm text-muted-foreground">
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+            <p className="text-xs sm:text-sm text-muted-foreground text-center sm:text-left">
               © 2023 Journal Wall. All rights reserved.
             </p>
-            <div className="flex gap-4">
+            <div className="flex gap-3 sm:gap-4">
               <Link
                 to="/terms"
-                className="text-sm text-muted-foreground hover:underline"
+                className="text-xs sm:text-sm text-muted-foreground hover:underline"
               >
                 Terms
               </Link>
               <Link
                 to="/privacy"
-                className="text-sm text-muted-foreground hover:underline"
+                className="text-xs sm:text-sm text-muted-foreground hover:underline"
               >
                 Privacy
               </Link>
               <Link
                 to="/contact"
-                className="text-sm text-muted-foreground hover:underline"
+                className="text-xs sm:text-sm text-muted-foreground hover:underline"
               >
                 Contact
               </Link>
