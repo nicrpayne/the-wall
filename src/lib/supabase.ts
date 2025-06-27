@@ -31,20 +31,100 @@ export interface Submission {
 
 // API functions
 export const wallsApi = {
+  async createSampleWall(): Promise<Wall> {
+    const sampleWall = {
+      title: "Sample Community Wall",
+      description:
+        "This is a sample wall for testing. Share your journal entries here!",
+      wall_code: "SAMPLE",
+      shareable_link: `${window.location.origin}/wall/SAMPLE`,
+      is_private: false,
+    };
+
+    console.log(
+      "🔧 [wallsApi.createSampleWall] Creating sample wall:",
+      sampleWall,
+    );
+    return await this.create(sampleWall);
+  },
   async getAll(): Promise<Wall[]> {
     const { data, error } = await supabase
       .from("walls")
       .select("*")
       .order("created_at", { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+      console.error("Error fetching walls:", error);
+      throw error;
+    }
     return data || [];
+  },
+
+  async getByIdOrCode(idOrCode: string): Promise<Wall | null> {
+    console.log(
+      "🔍 [wallsApi.getByIdOrCode] Searching for wall with ID/code:",
+      idOrCode,
+    );
+
+    // First, let's see what walls exist in the database
+    const { data: allWalls, error: allWallsError } = await supabase
+      .from("walls")
+      .select("*");
+
+    console.log("🔍 [wallsApi.getByIdOrCode] All walls in database:", allWalls);
+    console.log(
+      "🔍 [wallsApi.getByIdOrCode] Database query error (if any):",
+      allWallsError,
+    );
+
+    // Fix the OR query syntax - use proper string formatting
+    const { data, error } = await supabase
+      .from("walls")
+      .select("*")
+      .or(`id.eq."${idOrCode}",wall_code.eq."${idOrCode}"`)
+      .single();
+
+    console.log("🔍 [wallsApi.getByIdOrCode] Query result:", { data, error });
+
+    if (error) {
+      if (error.code === "PGRST116") {
+        // No rows returned
+        console.log(
+          "🔍 [wallsApi.getByIdOrCode] No wall found with ID/code:",
+          idOrCode,
+        );
+        return null;
+      }
+      console.error(
+        "🔴 [wallsApi.getByIdOrCode] Error fetching wall by ID or code:",
+        error,
+      );
+      throw error;
+    }
+
+    console.log("✅ [wallsApi.getByIdOrCode] Found wall:", data);
+    return data;
   },
 
   async create(wall: Omit<Wall, "id" | "created_at">): Promise<Wall> {
     const { data, error } = await supabase
       .from("walls")
       .insert(wall)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async update(
+    id: string,
+    updates: Partial<Omit<Wall, "id" | "created_at">>,
+  ): Promise<Wall> {
+    const { data, error } = await supabase
+      .from("walls")
+      .update(updates)
+      .eq("id", id)
       .select()
       .single();
 
@@ -109,19 +189,68 @@ export const submissionsApi = {
   },
 
   async uploadImage(file: File): Promise<string> {
-    const fileExt = file.name.split(".").pop();
-    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-    const filePath = `journal-entries/${fileName}`;
+    try {
+      // Validate file
+      if (!file) {
+        throw new Error("No file provided");
+      }
 
-    const { error: uploadError } = await supabase.storage
-      .from("images")
-      .upload(filePath, file);
+      if (file.size > 10 * 1024 * 1024) {
+        // 10MB limit
+        throw new Error(
+          "File size too large. Please choose a file smaller than 10MB.",
+        );
+      }
 
-    if (uploadError) throw uploadError;
+      const allowedTypes = [
+        "image/jpeg",
+        "image/jpg",
+        "image/png",
+        "image/webp",
+      ];
+      if (!allowedTypes.includes(file.type)) {
+        throw new Error(
+          "Invalid file type. Please upload a JPEG, PNG, or WebP image.",
+        );
+      }
 
-    const { data } = supabase.storage.from("images").getPublicUrl(filePath);
+      const fileExt = file.name.split(".").pop() || "jpg";
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+      const filePath = `journal-entries/${fileName}`;
 
-    return data.publicUrl;
+      console.log("Uploading file:", {
+        fileName,
+        filePath,
+        fileSize: file.size,
+        fileType: file.type,
+      });
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("images")
+        .upload(filePath, file, {
+          cacheControl: "3600",
+          upsert: false,
+        });
+
+      if (uploadError) {
+        console.error("Upload error:", uploadError);
+        throw new Error(`Upload failed: ${uploadError.message}`);
+      }
+
+      console.log("Upload successful:", uploadData);
+
+      const { data } = supabase.storage.from("images").getPublicUrl(filePath);
+
+      if (!data.publicUrl) {
+        throw new Error("Failed to get public URL for uploaded image");
+      }
+
+      console.log("Public URL generated:", data.publicUrl);
+      return data.publicUrl;
+    } catch (error) {
+      console.error("Error in uploadImage:", error);
+      throw error;
+    }
   },
 };
 

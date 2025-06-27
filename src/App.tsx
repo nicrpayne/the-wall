@@ -232,7 +232,6 @@ function App() {
             <Route path="/" element={<Home />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/wall/:wallId" element={<WallPage />} />
-            <Route path="/wall/:wallCode" element={<WallPage />} />
           </Routes>
           {import.meta.env.VITE_TEMPO === "true" && useRoutes(routes)}
           <Toaster />

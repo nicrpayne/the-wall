@@ -145,24 +145,31 @@ const AdminDashboard = () => {
   }) => {
     try {
       const wallCode = generateWallCode();
-      const wallId = crypto.randomUUID();
-      const shareableLink = `${window.location.origin}/wall/${wallId}`;
 
+      // First create the wall without the shareable link
       const newWall = await wallsApi.create({
         title: wallData.title,
         description: wallData.description,
         wall_code: wallCode,
-        shareable_link: shareableLink,
+        shareable_link: "", // Temporary empty value
         is_private: wallData.isPrivate,
       });
 
-      setWalls([newWall, ...walls]);
+      // Now use the actual database-generated ID for the shareable link
+      const shareableLink = `${window.location.origin}/wall/${newWall.id}`;
+
+      // Update the wall with the correct shareable link
+      const updatedWall = await wallsApi.update(newWall.id, {
+        shareable_link: shareableLink,
+      });
+
+      setWalls([updatedWall, ...walls]);
 
       return {
         success: true,
-        wallId: newWall.id,
-        shareableLink: newWall.shareable_link,
-        wallCode: newWall.wall_code,
+        wallId: updatedWall.id,
+        shareableLink: updatedWall.shareable_link,
+        wallCode: updatedWall.wall_code,
       };
     } catch (error) {
       console.error("Error creating wall:", error);
@@ -371,9 +378,32 @@ const AdminDashboard = () => {
               {walls.length === 0 && (
                 <div className="text-center py-12">
                   <h3 className="text-lg font-medium">No walls created yet</h3>
-                  <p className="text-muted-foreground mt-1">
+                  <p className="text-muted-foreground mt-1 mb-4">
                     Create your first community wall to get started
                   </p>
+                  <Button
+                    variant="outline"
+                    onClick={async () => {
+                      try {
+                        const sampleWall = await wallsApi.createSampleWall();
+                        setWalls([sampleWall]);
+                        toast({
+                          title: "Sample Wall Created!",
+                          description: `Sample wall created with code: ${sampleWall.wall_code}`,
+                        });
+                      } catch (error) {
+                        console.error("Error creating sample wall:", error);
+                        toast({
+                          title: "Error",
+                          description:
+                            "Failed to create sample wall. Check console for details.",
+                          variant: "destructive",
+                        });
+                      }
+                    }}
+                  >
+                    Create Sample Wall for Testing
+                  </Button>
                 </div>
               )}
             </TabsContent>
