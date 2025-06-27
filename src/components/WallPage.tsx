@@ -1,12 +1,22 @@
 import React, { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import CommunityWall from "./CommunityWall";
-import { wallsApi, submissionsApi, Wall, Submission } from "../lib/supabase";
+import {
+  wallsApi,
+  submissionsApi,
+  entriesApi,
+  Wall,
+  Submission,
+  Entry,
+} from "../lib/supabase";
 
 const WallPage = () => {
   const { wallId } = useParams<{ wallId: string }>();
+  const [searchParams] = useSearchParams();
+  const isAdminMode = searchParams.get("admin") === "true";
   const [wall, setWall] = useState<Wall | null>(null);
   const [approvedEntries, setApprovedEntries] = useState<any[]>([]);
+  const [directEntries, setDirectEntries] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Load wall data and approved submissions
@@ -48,14 +58,33 @@ const WallPage = () => {
             submission.status === "approved",
         );
 
-        const transformedEntries = wallSubmissions.map((submission) => ({
+        const transformedSubmissions = wallSubmissions.map((submission) => ({
           id: submission.id,
           imageUrl: submission.image_url,
           createdAt: submission.submitted_at,
           approved: true,
         }));
 
-        setApprovedEntries(transformedEntries);
+        // Get direct entries for this wall
+        const wallEntries = await entriesApi.getByWallId(actualWallId);
+        const transformedDirectEntries = wallEntries.map((entry) => ({
+          id: entry.id,
+          imageUrl: entry.image_url,
+          createdAt: entry.created_at,
+          approved: true,
+        }));
+
+        // Combine both types of entries and sort by creation date
+        const allEntries = [
+          ...transformedSubmissions,
+          ...transformedDirectEntries,
+        ].sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        );
+
+        setApprovedEntries(allEntries);
+        setDirectEntries(wallEntries);
       } catch (error) {
         console.error("Error loading wall data:", error);
       } finally {
@@ -78,32 +107,78 @@ const WallPage = () => {
           "Share your thoughts and reflections with the community. All entries are anonymous.",
       };
 
-  const handleSubmitEntry = async (file: File) => {
+  const handleSubmitEntry = async (files: File | File[]) => {
     if (!wall) {
       alert("Error: Wall not found");
       return;
     }
 
+    const fileArray = Array.isArray(files) ? files : [files];
+
     try {
       console.log("Starting file upload...", {
-        fileName: file.name,
-        fileSize: file.size,
-        fileType: file.type,
+        fileCount: fileArray.length,
+        files: fileArray.map((f) => ({
+          name: f.name,
+          size: f.size,
+          type: f.type,
+        })),
       });
 
-      // Upload image to Supabase storage
-      const imageUrl = await submissionsApi.uploadImage(file);
-      console.log("Image uploaded successfully:", imageUrl);
+      if (isAdminMode) {
+        // Admin mode: Create direct entries
+        const uploadPromises = fileArray.map(async (file) => {
+          const imageUrl = await submissionsApi.uploadImage(file);
+          return {
+            wall_id: wall.id,
+            image_url: imageUrl,
+          };
+        });
 
-      // Create submission record using the actual wall ID
-      await submissionsApi.create({
-        wall_id: wall.id,
-        image_url: imageUrl,
-        status: "pending",
-      });
+        const entryData = await Promise.all(uploadPromises);
+        const newEntries = await entriesApi.createMultiple(entryData);
 
-      console.log("Submission created successfully");
-      alert("Your journal entry has been submitted for review!");
+        console.log("Direct entries created successfully:", newEntries);
+        console.log("Number of entries created:", newEntries.length);
+        console.log("Number of files processed:", fileArray.length);
+
+        // Update the entries list immediately
+        const transformedNewEntries = newEntries.map((entry) => ({
+          id: entry.id,
+          imageUrl: entry.image_url,
+          createdAt: entry.created_at,
+          approved: true,
+        }));
+
+        setApprovedEntries((prev) => {
+          const combined = [...transformedNewEntries, ...prev];
+          return combined.sort(
+            (a, b) =>
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+          );
+        });
+
+        const actualCount = newEntries.length;
+        alert(
+          `Successfully added ${actualCount} ${actualCount === 1 ? "entry" : "entries"} to the wall!`,
+        );
+      } else {
+        // Regular user mode: Create submissions for review
+        const uploadPromises = fileArray.map(async (file) => {
+          const imageUrl = await submissionsApi.uploadImage(file);
+          return submissionsApi.create({
+            wall_id: wall.id,
+            image_url: imageUrl,
+            status: "pending",
+          });
+        });
+
+        await Promise.all(uploadPromises);
+        console.log("Submissions created successfully");
+        alert(
+          `Your ${fileArray.length === 1 ? "journal entry has" : `${fileArray.length} journal entries have`} been submitted for review!`,
+        );
+      }
     } catch (error) {
       console.error("Error submitting entry:", error);
 
@@ -175,8 +250,9 @@ const WallPage = () => {
         title={wallInfo.title}
         description={wallInfo.description}
         entries={approvedEntries}
-        isFirstVisit={true}
+        isFirstVisit={!isAdminMode}
         onSubmitEntry={handleSubmitEntry}
+        isAdminMode={isAdminMode}
       />
     </div>
   );

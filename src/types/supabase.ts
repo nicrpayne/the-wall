@@ -9,6 +9,35 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      entries: {
+        Row: {
+          created_at: string | null
+          id: string
+          image_url: string
+          wall_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          image_url: string
+          wall_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          image_url?: string
+          wall_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entries_wall_id_fkey"
+            columns: ["wall_id"]
+            isOneToOne: false
+            referencedRelation: "walls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       submissions: {
         Row: {
           id: string

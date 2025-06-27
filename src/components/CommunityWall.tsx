@@ -18,6 +18,10 @@ import {
   Grid3X3,
   ChevronLeft,
   ChevronRight,
+  Settings,
+  Upload,
+  Move,
+  Trash2,
 } from "lucide-react";
 import ZoomableImage from "./ZoomableImage";
 import JournalUploader from "./JournalUploader";
@@ -36,7 +40,8 @@ interface CommunityWallProps {
   description?: string;
   entries?: JournalEntry[];
   isFirstVisit?: boolean;
-  onSubmitEntry?: (file: File) => Promise<void>;
+  onSubmitEntry?: (files: File | File[]) => Promise<void>;
+  isAdminMode?: boolean;
 }
 
 const CommunityWall = ({
@@ -45,7 +50,8 @@ const CommunityWall = ({
   description = "Share your thoughts and reflections with the community. All entries are anonymous.",
   entries = [],
   isFirstVisit = false,
-  onSubmitEntry = async () => {},
+  onSubmitEntry = async (files: File | File[]) => {},
+  isAdminMode = false,
 }: CommunityWallProps) => {
   const [showUploader, setShowUploader] = useState(isFirstVisit);
   const [selectedEntry, setSelectedEntry] = useState<JournalEntry | null>(null);
@@ -60,11 +66,16 @@ const CommunityWall = ({
 
   useEffect(() => {
     // Check local storage to see if user has already submitted to this wall
-    const hasVisited = localStorage.getItem(`wall-visited-${wallId}`);
-    if (hasVisited) {
-      setShowUploader(false);
+    // Skip this check in admin mode
+    if (!isAdminMode) {
+      const hasVisited = localStorage.getItem(`wall-visited-${wallId}`);
+      if (hasVisited) {
+        setShowUploader(false);
+      } else {
+        setShowUploader(isFirstVisit);
+      }
     } else {
-      setShowUploader(isFirstVisit);
+      setShowUploader(false); // Admin doesn't need to submit first
     }
 
     // Check if mobile
@@ -76,16 +87,18 @@ const CommunityWall = ({
     window.addEventListener("resize", checkMobile);
 
     return () => window.removeEventListener("resize", checkMobile);
-  }, [wallId, isFirstVisit]);
+  }, [wallId, isFirstVisit, isAdminMode]);
 
-  const handleSubmit = async (file: File) => {
+  const handleSubmit = async (files: File | File[]) => {
     setIsLoading(true);
     try {
-      await onSubmitEntry(file);
-      // Mark that user has submitted to this wall
-      localStorage.setItem(`wall-visited-${wallId}`, "true");
+      await onSubmitEntry(files);
+      if (!isAdminMode) {
+        // Mark that user has submitted to this wall (only for regular users)
+        localStorage.setItem(`wall-visited-${wallId}`, "true");
+        setHasSubmitted(true);
+      }
       setShowUploader(false);
-      setHasSubmitted(true);
     } catch (error) {
       console.error("Error submitting entry:", error);
     } finally {
@@ -157,18 +170,28 @@ const CommunityWall = ({
     return (
       <div className="bg-background min-h-screen p-4 md:p-8">
         <div className="max-w-4xl mx-auto">
-          <h1 className="text-2xl md:text-3xl font-bold mb-2">{title}</h1>
-          <p className="text-muted-foreground mb-6">{description}</p>
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold mb-2">{title}</h1>
+              <p className="text-muted-foreground">{description}</p>
+            </div>
+            {isAdminMode && (
+              <Button variant="outline" onClick={() => setShowUploader(false)}>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back to Wall
+              </Button>
+            )}
+          </div>
 
           <Card className="mb-6">
             <CardContent className="p-6">
               <h2 className="text-xl font-semibold mb-4">
-                Share Your Journal Entry
+                {isAdminMode ? "Add New Entry" : "Share Your Journal Entry"}
               </h2>
               <p className="text-muted-foreground mb-6">
-                To view the community wall, please share your own journal entry
-                first. Your submission will be reviewed by a moderator before
-                being added to the wall.
+                {isAdminMode
+                  ? "Upload journal entries directly to this wall. Your entries will be added immediately without requiring approval."
+                  : "To view the community wall, please share your own journal entry first. Your submission will be reviewed by a moderator before being added to the wall."}
               </p>
               <JournalUploader
                 onSubmit={handleSubmit}
@@ -190,6 +213,26 @@ const CommunityWall = ({
             <p className="text-muted-foreground">{description}</p>
           </div>
           <div className="flex mt-4 md:mt-0 space-x-2">
+            {isAdminMode && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowUploader(true)}
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Add Entry
+                </Button>
+                <Button variant="outline" size="sm">
+                  <Move className="h-4 w-4 mr-2" />
+                  Rearrange
+                </Button>
+                <Button variant="outline" size="sm">
+                  <Settings className="h-4 w-4 mr-2" />
+                  Settings
+                </Button>
+              </>
+            )}
             <Button variant="outline" size="sm" onClick={handleShareWall}>
               <Share2 className="h-4 w-4 mr-2" />
               Share Wall
@@ -197,7 +240,7 @@ const CommunityWall = ({
           </div>
         </div>
 
-        {hasSubmitted && (
+        {hasSubmitted && !isAdminMode && (
           <Alert className="mb-6">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>

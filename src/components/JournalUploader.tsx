@@ -19,7 +19,7 @@ import {
 } from "./ui/dialog";
 
 interface JournalUploaderProps {
-  onSubmit: (file: File) => Promise<void>;
+  onSubmit: (files: File | File[]) => Promise<void>;
   isSubmitting?: boolean;
   wallTitle?: string;
 }
@@ -29,10 +29,11 @@ const JournalUploader = ({
   isSubmitting = false,
   wallTitle = "Community Wall",
 }: JournalUploaderProps) => {
-  const [capturedImage, setCapturedImage] = useState<string | null>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [capturedImages, setCapturedImages] = useState<string[]>([]);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [showPreview, setShowPreview] = useState(false);
   const [isProcessingFile, setIsProcessingFile] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
@@ -41,16 +42,12 @@ const JournalUploader = ({
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     console.log("🔵 [JournalUploader] File input changed");
-    const file = event.target.files?.[0];
+    const files = Array.from(event.target.files || []);
 
-    if (file) {
-      console.log("🔵 [JournalUploader] File selected:", {
-        name: file.name,
-        size: file.size,
-        type: file.type,
-      });
+    if (files.length > 0) {
+      console.log("🔵 [JournalUploader] Files selected:", files.length);
 
-      // Validate file type
+      // Validate file types and sizes
       const allowedTypes = [
         "image/jpeg",
         "image/jpg",
@@ -58,39 +55,57 @@ const JournalUploader = ({
         "image/webp",
         "image/gif",
       ];
-      if (!allowedTypes.includes(file.type)) {
-        alert("Please select a valid image file (JPEG, PNG, WebP, or GIF)");
+
+      const validFiles: File[] = [];
+      const invalidFiles: string[] = [];
+
+      files.forEach((file) => {
+        if (!allowedTypes.includes(file.type)) {
+          invalidFiles.push(`${file.name} (invalid type)`);
+        } else if (file.size > 10 * 1024 * 1024) {
+          invalidFiles.push(`${file.name} (too large)`);
+        } else {
+          validFiles.push(file);
+        }
+      });
+
+      if (invalidFiles.length > 0) {
+        alert(
+          `Some files were skipped:\n${invalidFiles.join("\n")}\n\nPlease select valid image files (JPEG, PNG, WebP, or GIF) smaller than 10MB.`,
+        );
+      }
+
+      if (validFiles.length === 0) {
         return;
       }
 
-      // Validate file size (10MB limit)
-      if (file.size > 10 * 1024 * 1024) {
-        alert("File size too large. Please choose a file smaller than 10MB.");
-        return;
-      }
-
-      setSelectedFile(file);
+      setSelectedFiles(validFiles);
       setIsProcessingFile(true);
-      const reader = new FileReader();
 
-      reader.onload = (e) => {
-        console.log("🔵 [JournalUploader] File read successfully");
-        const result = e.target?.result as string;
-        setCapturedImage(result);
-        setShowPreview(true);
-        setIsProcessingFile(false);
-        console.log("🔵 [JournalUploader] Preview should now be visible");
-      };
+      // Process all files
+      const imagePromises = validFiles.map((file) => {
+        return new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target?.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      });
 
-      reader.onerror = (error) => {
-        console.error("🔴 [JournalUploader] Error reading file:", error);
-        setIsProcessingFile(false);
-        alert("Error reading the selected file. Please try again.");
-      };
-
-      reader.readAsDataURL(file);
+      Promise.all(imagePromises)
+        .then((images) => {
+          console.log("🔵 [JournalUploader] All files processed successfully");
+          setCapturedImages(images);
+          setShowPreview(true);
+          setIsProcessingFile(false);
+        })
+        .catch((error) => {
+          console.error("🔴 [JournalUploader] Error reading files:", error);
+          setIsProcessingFile(false);
+          alert("Error reading some files. Please try again.");
+        });
     } else {
-      console.log("🔴 [JournalUploader] No file selected");
+      console.log("🔴 [JournalUploader] No files selected");
     }
   };
 
@@ -144,11 +159,14 @@ const JournalUploader = ({
         canvas.toBlob(
           (blob) => {
             if (blob) {
-              const file = new File([blob], "journal-entry.jpg", {
+              const file = new File([blob], `journal-entry-${Date.now()}.jpg`, {
                 type: "image/jpeg",
               });
-              setSelectedFile(file);
-              setCapturedImage(canvas.toDataURL("image/jpeg"));
+              const imageUrl = canvas.toDataURL("image/jpeg");
+
+              // Add to existing arrays
+              setSelectedFiles((prev) => [...prev, file]);
+              setCapturedImages((prev) => [...prev, imageUrl]);
               setShowPreview(true);
               stopCamera();
             }
@@ -162,31 +180,57 @@ const JournalUploader = ({
 
   const handleSubmit = async () => {
     console.log("🔵 [JournalUploader] Submit button clicked");
-    if (selectedFile) {
-      console.log("🔵 [JournalUploader] Submitting file:", selectedFile.name);
+    if (selectedFiles.length > 0) {
+      console.log(
+        "🔵 [JournalUploader] Submitting files:",
+        selectedFiles.length,
+      );
       try {
-        await onSubmit(selectedFile);
-        console.log("🔵 [JournalUploader] File submitted successfully");
-        setCapturedImage(null);
-        setSelectedFile(null);
+        setUploadProgress(0);
+
+        // Pass all files at once to the parent component
+        console.log(
+          `🔵 [JournalUploader] Uploading ${selectedFiles.length} files`,
+        );
+        await onSubmit(
+          selectedFiles.length === 1 ? selectedFiles[0] : selectedFiles,
+        );
+        setUploadProgress(100);
+
+        console.log("🔵 [JournalUploader] All files submitted successfully");
+        setCapturedImages([]);
+        setSelectedFiles([]);
         setShowPreview(false);
+        setUploadProgress(0);
       } catch (error) {
-        console.error("🔴 [JournalUploader] Error submitting file:", error);
-        alert("Error uploading your journal entry. Please try again.");
+        console.error("🔴 [JournalUploader] Error submitting files:", error);
+        alert("Error uploading your journal entries. Please try again.");
+        setUploadProgress(0);
       }
     } else {
-      console.error("🔴 [JournalUploader] No file selected for submission");
+      console.error("🔴 [JournalUploader] No files selected for submission");
     }
   };
 
   const resetUpload = () => {
     console.log("🔵 [JournalUploader] Resetting upload");
-    setCapturedImage(null);
-    setSelectedFile(null);
+    setCapturedImages([]);
+    setSelectedFiles([]);
     setShowPreview(false);
     setIsProcessingFile(false);
+    setUploadProgress(0);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setCapturedImages((prev) => prev.filter((_, i) => i !== index));
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+
+    // If no images left, hide preview
+    if (capturedImages.length === 1) {
+      setShowPreview(false);
     }
   };
 
@@ -248,48 +292,94 @@ const JournalUploader = ({
                     accept="image/*,image/jpeg,image/jpg,image/png,image/webp,image/gif"
                     className="hidden"
                     capture="environment"
+                    multiple
                   />
                 </div>
               </div>
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="relative">
-                <img
-                  src={capturedImage || ""}
-                  alt="Journal entry preview"
-                  className="w-full h-auto rounded-md object-contain max-h-80"
-                />
-                <Button
-                  variant="destructive"
-                  size="icon"
-                  className="absolute top-2 right-2 rounded-full"
-                  onClick={resetUpload}
-                >
-                  <X size={16} />
-                </Button>
+              <div className="text-sm text-muted-foreground text-center mb-4">
+                {selectedFiles.length} image
+                {selectedFiles.length !== 1 ? "s" : ""} selected
               </div>
+
+              <div className="grid grid-cols-2 gap-2 max-h-80 overflow-y-auto">
+                {capturedImages.map((image, index) => (
+                  <div key={index} className="relative group">
+                    <img
+                      src={image}
+                      alt={`Journal entry preview ${index + 1}`}
+                      className="w-full h-32 rounded-md object-cover"
+                    />
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-1 right-1 rounded-full w-6 h-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => removeImage(index)}
+                    >
+                      <X size={12} />
+                    </Button>
+                    <div className="absolute bottom-1 left-1 bg-black/70 text-white text-xs px-1 rounded">
+                      {index + 1}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Add more images button */}
+              <Button
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full"
+                disabled={isProcessingFile}
+              >
+                <Upload size={16} className="mr-2" />
+                Add More Images
+              </Button>
             </div>
           )}
         </CardContent>
         {showPreview && (
-          <CardFooter className="flex justify-end space-x-2">
-            <Button variant="outline" onClick={resetUpload}>
-              Cancel
-            </Button>
-            <Button onClick={handleSubmit} disabled={isSubmitting}>
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Submitting...
-                </>
-              ) : (
-                <>
-                  <Check className="mr-2 h-4 w-4" />
-                  Submit Entry
-                </>
-              )}
-            </Button>
+          <CardFooter className="flex flex-col space-y-3">
+            {isSubmitting && uploadProgress > 0 && (
+              <div className="w-full">
+                <div className="flex justify-between text-sm text-muted-foreground mb-1">
+                  <span>Uploading...</span>
+                  <span>{Math.round(uploadProgress)}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div
+                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${uploadProgress}%` }}
+                  ></div>
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end space-x-2 w-full">
+              <Button
+                variant="outline"
+                onClick={resetUpload}
+                disabled={isSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleSubmit} disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Check className="mr-2 h-4 w-4" />
+                    Submit {selectedFiles.length} Entr
+                    {selectedFiles.length !== 1 ? "ies" : "y"}
+                  </>
+                )}
+              </Button>
+            </div>
           </CardFooter>
         )}
       </Card>

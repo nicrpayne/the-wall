@@ -29,6 +29,13 @@ export interface Submission {
   wall_title?: string;
 }
 
+export interface Entry {
+  id: string;
+  wall_id: string;
+  image_url: string;
+  created_at: string;
+}
+
 // API functions
 export const wallsApi = {
   async createSampleWall(): Promise<Wall> {
@@ -254,6 +261,58 @@ export const submissionsApi = {
   },
 };
 
+export const entriesApi = {
+  async getByWallId(wallId: string): Promise<Entry[]> {
+    const { data, error } = await supabase
+      .from("entries")
+      .select("*")
+      .eq("wall_id", wallId)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching entries:", error);
+      throw error;
+    }
+    return data || [];
+  },
+
+  async create(entry: Omit<Entry, "id" | "created_at">): Promise<Entry> {
+    const { data, error } = await supabase
+      .from("entries")
+      .insert({
+        ...entry,
+        created_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async createMultiple(
+    entries: Omit<Entry, "id" | "created_at">[],
+  ): Promise<Entry[]> {
+    const entriesWithTimestamp = entries.map((entry) => ({
+      ...entry,
+      created_at: new Date().toISOString(),
+    }));
+
+    const { data, error } = await supabase
+      .from("entries")
+      .insert(entriesWithTimestamp)
+      .select();
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  async delete(id: string): Promise<void> {
+    const { error } = await supabase.from("entries").delete().eq("id", id);
+    if (error) throw error;
+  },
+};
+
 // Real-time subscriptions
 export const subscribeToSubmissions = (
   callback: (submissions: Submission[]) => void,
@@ -266,6 +325,23 @@ export const subscribeToSubmissions = (
       () => {
         // Refetch submissions when changes occur
         submissionsApi.getAll().then(callback);
+      },
+    )
+    .subscribe();
+};
+
+export const subscribeToEntries = (
+  wallId: string,
+  callback: (entries: Entry[]) => void,
+) => {
+  return supabase
+    .channel(`entries-${wallId}`)
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "entries" },
+      () => {
+        // Refetch entries when changes occur
+        entriesApi.getByWallId(wallId).then(callback);
       },
     )
     .subscribe();
