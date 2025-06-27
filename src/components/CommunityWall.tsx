@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -9,28 +8,23 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
-  Eye,
   Share2,
   AlertCircle,
   ArrowLeft,
-  Grid3X3,
-  ChevronLeft,
-  ChevronRight,
   Settings,
   Upload,
   Move,
-  Trash2,
   Save,
   X,
   GripVertical,
 } from "lucide-react";
-import ZoomableImage from "./ZoomableImage";
 import JournalUploader from "./JournalUploader";
 import WallCreationForm from "./WallCreationForm";
-import { useSwipeable } from "react-swipeable";
+import PhotoAlbum from "react-photo-album";
+import Lightbox from "yet-another-react-lightbox";
+import "yet-another-react-lightbox/styles.css";
 
 interface JournalEntry {
   id: string;
@@ -74,14 +68,9 @@ const CommunityWall = ({
   wallData,
 }: CommunityWallProps) => {
   const [showUploader, setShowUploader] = useState(isFirstVisit);
-  const [selectedEntry, setSelectedEntry] = useState<JournalEntry | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [hasSubmitted, setHasSubmitted] = useState(false);
-  const [activeTab, setActiveTab] = useState("grid");
-
-  // Mobile view states
-  const [viewMode, setViewMode] = useState<"grid" | "scroll" | "zoom">("grid");
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [lightboxIndex, setLightboxIndex] = useState(-1);
   const [isMobile, setIsMobile] = useState(false);
 
   // Admin functionality states
@@ -93,13 +82,9 @@ const CommunityWall = ({
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
-  // Handle rearrange mode activation - force switch to list view
+  // Handle rearrange mode activation
   const handleRearrangeModeToggle = (enabled: boolean) => {
     setIsRearrangeMode(enabled);
-    if (enabled) {
-      // Force switch to list view when entering rearrange mode
-      setActiveTab("list");
-    }
   };
 
   useEffect(() => {
@@ -163,27 +148,24 @@ const CommunityWall = ({
     }
   };
 
-  const handleImageClick = (entry: JournalEntry, index: number) => {
-    if (isMobile) {
-      setCurrentImageIndex(index);
-      setViewMode("scroll");
-    } else {
-      setSelectedEntry(entry);
-    }
-  };
+  // Transform entries for PhotoAlbum
+  const photos = (isRearrangeMode ? reorderedEntries : entries).map(
+    (entry) => ({
+      src: entry.imageUrl,
+      width: 400, // Default width - PhotoAlbum will handle responsive sizing
+      height: 600, // Default height for portrait orientation
+      alt: `Journal entry from ${new Date(entry.createdAt).toLocaleDateString()}`,
+      key: entry.id,
+    }),
+  );
 
-  const handleScrollImageClick = (entry: JournalEntry) => {
-    setSelectedEntry(entry);
-    setViewMode("zoom");
-  };
-
-  const navigateImage = (direction: "prev" | "next") => {
-    if (direction === "prev" && currentImageIndex > 0) {
-      setCurrentImageIndex(currentImageIndex - 1);
-    } else if (direction === "next" && currentImageIndex < entries.length - 1) {
-      setCurrentImageIndex(currentImageIndex + 1);
-    }
-  };
+  // Transform entries for Lightbox
+  const lightboxSlides = (isRearrangeMode ? reorderedEntries : entries).map(
+    (entry) => ({
+      src: entry.imageUrl,
+      alt: `Journal entry from ${new Date(entry.createdAt).toLocaleDateString()}`,
+    }),
+  );
 
   // Settings functionality
   const handleUpdateWall = async (wallData: {
@@ -260,30 +242,6 @@ const CommunityWall = ({
     handleRearrangeModeToggle(false);
   };
 
-  // Swipe handlers for mobile navigation
-  const swipeHandlers = useSwipeable({
-    onSwipedLeft: () => {
-      if (viewMode === "scroll" && currentImageIndex < entries.length - 1) {
-        setCurrentImageIndex(currentImageIndex + 1);
-      }
-    },
-    onSwipedRight: () => {
-      if (viewMode === "scroll" && currentImageIndex > 0) {
-        setCurrentImageIndex(currentImageIndex - 1);
-      }
-    },
-    onSwipedDown: () => {
-      if (viewMode === "zoom") {
-        setSelectedEntry(null);
-        setViewMode("scroll");
-      } else if (viewMode === "scroll") {
-        setViewMode("grid");
-      }
-    },
-    preventDefaultTouchmoveEvent: true,
-    trackMouse: true,
-  });
-
   if (showUploader) {
     return (
       <div className="bg-background min-h-screen p-4 md:p-8">
@@ -344,17 +302,15 @@ const CommunityWall = ({
                 </Button>
                 {!isRearrangeMode ? (
                   <>
-                    {activeTab === "list" && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleRearrangeModeToggle(true)}
-                        disabled={entries.length === 0}
-                      >
-                        <Move className="h-4 w-4 mr-2" />
-                        Rearrange
-                      </Button>
-                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleRearrangeModeToggle(true)}
+                      disabled={entries.length === 0}
+                    >
+                      <Move className="h-4 w-4 mr-2" />
+                      Rearrange
+                    </Button>
                     <Button
                       variant="outline"
                       size="sm"
@@ -427,365 +383,106 @@ const CommunityWall = ({
           </Card>
         ) : (
           <>
-            <Tabs
-              value={activeTab}
-              className="mb-6"
-              onValueChange={setActiveTab}
-            >
-              <div className="flex justify-between items-center mb-4">
-                <TabsList>
-                  <TabsTrigger
-                    value="grid"
-                    disabled={isRearrangeMode}
-                    className={
-                      isRearrangeMode ? "opacity-50 cursor-not-allowed" : ""
-                    }
+            <div className="flex justify-between items-center mb-6">
+              <p className="text-sm text-muted-foreground">
+                {entries.length} entries {isRearrangeMode && "(Rearrange Mode)"}
+              </p>
+            </div>
+
+            {isRearrangeMode ? (
+              // Rearrange mode - use simple grid with drag and drop
+              <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                {reorderedEntries.map((entry, index) => (
+                  <Card
+                    key={entry.id}
+                    className={`overflow-hidden transition-all duration-200 cursor-move ${
+                      draggedIndex === index
+                        ? "opacity-50 border-primary border-2"
+                        : dragOverIndex === index
+                          ? "border-green-500 border-2"
+                          : "border-dashed border-gray-300"
+                    }`}
+                    draggable={true}
+                    onDragStart={(e) => handleDragStart(e, index)}
+                    onDragOver={(e) => handleDragOver(e, index)}
+                    onDragLeave={(e) => handleDragLeave(e)}
+                    onDragEnd={handleDragEnd}
+                    onDrop={(e) => handleDrop(e, index)}
                   >
-                    Grid View
-                  </TabsTrigger>
-                  <TabsTrigger value="list">List View</TabsTrigger>
-                </TabsList>
-                <p className="text-sm text-muted-foreground">
-                  {entries.length} entries{" "}
-                  {isRearrangeMode && "(Rearrange Mode - List View Only)"}
-                </p>
+                    <div className="relative aspect-[3/4]">
+                      <div className="absolute top-2 right-2 z-10 bg-white/90 rounded-full p-1 shadow-sm">
+                        <GripVertical className="h-4 w-4 text-gray-600" />
+                      </div>
+                      <img
+                        src={entry.imageUrl}
+                        alt="Journal entry"
+                        className="object-cover w-full h-full"
+                        loading="lazy"
+                      />
+                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3">
+                        <div className="flex items-center justify-center">
+                          <span className="text-white text-xs font-medium">
+                            {dragOverIndex === index
+                              ? "Drop Here"
+                              : `Position ${index + 1}`}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
               </div>
-
-              <TabsContent value="grid" className="mt-0">
-                <div
-                  className={`grid gap-4 ${
-                    isMobile
-                      ? "grid-cols-3 gap-2"
-                      : "grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
-                  }`}
-                >
-                  {(isRearrangeMode ? reorderedEntries : entries).map(
-                    (entry, index) => (
-                      <Card
-                        key={entry.id}
-                        className={`overflow-hidden transition-all duration-200 ${
-                          isRearrangeMode
-                            ? `cursor-move ${
-                                draggedIndex === index
-                                  ? "opacity-50 border-primary border-2"
-                                  : dragOverIndex === index
-                                    ? "border-green-500 border-2"
-                                    : "border-dashed border-gray-300"
-                              }`
-                            : "cursor-pointer hover:shadow-md"
-                        }`}
-                        onClick={
-                          isRearrangeMode
-                            ? undefined
-                            : () => handleImageClick(entry, index)
-                        }
-                        draggable={isRearrangeMode}
-                        onDragStart={
-                          isRearrangeMode
-                            ? (e) => handleDragStart(e, index)
-                            : undefined
-                        }
-                        onDragOver={
-                          isRearrangeMode
-                            ? (e) => handleDragOver(e, index)
-                            : undefined
-                        }
-                        onDragLeave={
-                          isRearrangeMode
-                            ? (e) => handleDragLeave(e)
-                            : undefined
-                        }
-                        onDragEnd={isRearrangeMode ? handleDragEnd : undefined}
-                        onDrop={
-                          isRearrangeMode
-                            ? (e) => handleDrop(e, index)
-                            : undefined
-                        }
-                      >
-                        <div
-                          className={`relative ${
-                            isMobile ? "aspect-square" : "aspect-[3/4]"
-                          }`}
-                        >
-                          {isRearrangeMode && (
-                            <div className="absolute top-2 right-2 z-10 bg-white/90 rounded-full p-1 shadow-sm">
-                              <GripVertical className="h-4 w-4 text-gray-600" />
-                            </div>
-                          )}
-                          <img
-                            src={entry.imageUrl}
-                            alt="Journal entry"
-                            className="object-cover w-full h-full"
-                            loading="lazy"
-                          />
-                          {!isMobile && !isRearrangeMode && (
-                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3">
-                              <div className="flex items-center justify-between">
-                                <span className="text-white text-xs">
-                                  {new Date(
-                                    entry.createdAt,
-                                  ).toLocaleDateString()}
-                                </span>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="text-white p-0 h-auto"
-                                >
-                                  <Eye className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </div>
-                          )}
-                          {isRearrangeMode && (
-                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3">
-                              <div className="flex items-center justify-center">
-                                <span className="text-white text-xs font-medium">
-                                  {dragOverIndex === index
-                                    ? "Drop Here"
-                                    : `Position ${index + 1}`}
-                                </span>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </Card>
-                    ),
-                  )}
-                </div>
-              </TabsContent>
-
-              <TabsContent value="list" className="mt-0">
-                <div className="space-y-4">
-                  {(isRearrangeMode ? reorderedEntries : entries).map(
-                    (entry, index) => (
-                      <Card
-                        key={entry.id}
-                        className={`overflow-hidden transition-all duration-200 ${
-                          isRearrangeMode
-                            ? `cursor-move ${
-                                draggedIndex === index
-                                  ? "opacity-50 border-primary border-2"
-                                  : dragOverIndex === index
-                                    ? "border-green-500 border-2"
-                                    : "border-dashed border-gray-300"
-                              }`
-                            : ""
-                        }`}
-                        draggable={isRearrangeMode}
-                        onDragStart={
-                          isRearrangeMode
-                            ? (e) => handleDragStart(e, index)
-                            : undefined
-                        }
-                        onDragOver={
-                          isRearrangeMode
-                            ? (e) => handleDragOver(e, index)
-                            : undefined
-                        }
-                        onDragLeave={
-                          isRearrangeMode
-                            ? (e) => handleDragLeave(e)
-                            : undefined
-                        }
-                        onDragEnd={isRearrangeMode ? handleDragEnd : undefined}
-                        onDrop={
-                          isRearrangeMode
-                            ? (e) => handleDrop(e, index)
-                            : undefined
-                        }
-                      >
-                        <div
-                          className={`flex flex-col md:flex-row ${
-                            isRearrangeMode ? "" : "cursor-pointer"
-                          }`}
-                          onClick={
-                            isRearrangeMode
-                              ? undefined
-                              : () => handleImageClick(entry, index)
-                          }
-                        >
-                          <div className="md:w-48 h-48 md:h-auto relative">
-                            {isRearrangeMode && (
-                              <div className="absolute top-2 right-2 z-10 bg-white/90 rounded-full p-1 shadow-sm">
-                                <GripVertical className="h-4 w-4 text-gray-600" />
-                              </div>
-                            )}
-                            <img
-                              src={entry.imageUrl}
-                              alt="Journal entry"
-                              className="object-cover w-full h-full"
-                              loading="lazy"
-                            />
-                            {isRearrangeMode && (
-                              <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
-                                {dragOverIndex === index
-                                  ? "Drop Here"
-                                  : `Position ${index + 1}`}
-                              </div>
-                            )}
-                          </div>
-                          <div className="p-4 flex flex-col justify-between flex-grow">
-                            <div>
-                              <p className="text-sm text-muted-foreground mb-2">
-                                Posted on{" "}
-                                {new Date(entry.createdAt).toLocaleDateString()}
-                              </p>
-                              <p className="line-clamp-3">
-                                {isRearrangeMode
-                                  ? "Drag to reorder this journal entry"
-                                  : "Click to view this journal entry"}
-                              </p>
-                            </div>
-                            {!isRearrangeMode && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="self-end"
-                              >
-                                <Eye className="h-4 w-4 mr-2" />
-                                View
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      </Card>
-                    ),
-                  )}
-                </div>
-              </TabsContent>
-            </Tabs>
+            ) : (
+              // Normal mode - use PhotoAlbum masonry layout
+              <PhotoAlbum
+                photos={photos}
+                layout="masonry"
+                targetRowHeight={300}
+                onClick={({ index }) => setLightboxIndex(index)}
+                spacing={8}
+                padding={0}
+                sizes={{
+                  size: "calc(100vw - 2rem)",
+                  sizes: [
+                    {
+                      viewport: "(max-width: 640px)",
+                      size: "calc(50vw - 1rem)",
+                    },
+                    {
+                      viewport: "(max-width: 768px)",
+                      size: "calc(33vw - 1rem)",
+                    },
+                    {
+                      viewport: "(max-width: 1024px)",
+                      size: "calc(25vw - 1rem)",
+                    },
+                    {
+                      viewport: "(max-width: 1280px)",
+                      size: "calc(20vw - 1rem)",
+                    },
+                    { size: "calc(16.66vw - 1rem)" },
+                  ],
+                }}
+              />
+            )}
           </>
         )}
       </div>
 
-      {/* Mobile Scroll View */}
-      {isMobile && viewMode === "scroll" && (
-        <div className="fixed inset-0 z-50 bg-black" {...swipeHandlers}>
-          {/* Header */}
-          <div className="absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-black/80 to-transparent p-4">
-            <div className="flex items-center justify-between text-white">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setViewMode("grid")}
-                className="text-white hover:bg-white/20"
-              >
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Grid
-              </Button>
-              <span className="text-sm">
-                {currentImageIndex + 1} of {entries.length}
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setViewMode("grid")}
-                className="text-white hover:bg-white/20"
-              >
-                <Grid3X3 className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-
-          {/* Image */}
-          <div className="flex items-center justify-center h-full px-4">
-            <img
-              src={entries[currentImageIndex]?.imageUrl}
-              alt="Journal entry"
-              className="max-w-full max-h-full object-contain cursor-pointer"
-              onClick={() => handleScrollImageClick(entries[currentImageIndex])}
-            />
-          </div>
-
-          {/* Navigation */}
-          <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black/80 to-transparent p-4">
-            <div className="flex items-center justify-between">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigateImage("prev")}
-                disabled={currentImageIndex === 0}
-                className="text-white hover:bg-white/20"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-
-              <div className="text-white text-center">
-                <p className="text-xs opacity-75">
-                  Posted{" "}
-                  {new Date(
-                    entries[currentImageIndex]?.createdAt,
-                  ).toLocaleDateString()}
-                </p>
-                <p className="text-xs mt-1 opacity-50">
-                  Tap image to zoom • Swipe to navigate • Swipe down to return
-                </p>
-              </div>
-
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigateImage("next")}
-                disabled={currentImageIndex === entries.length - 1}
-                className="text-white hover:bg-white/20"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Desktop Dialog or Mobile Zoom View */}
-      <Dialog
-        open={!!selectedEntry && (!isMobile || viewMode === "zoom")}
-        onOpenChange={(open) => {
-          if (!open) {
-            setSelectedEntry(null);
-            if (isMobile) {
-              setViewMode("scroll");
-            }
-          }
+      {/* Lightbox */}
+      <Lightbox
+        open={lightboxIndex >= 0}
+        index={lightboxIndex}
+        close={() => setLightboxIndex(-1)}
+        slides={lightboxSlides}
+        carousel={{
+          finite: true,
         }}
-      >
-        <DialogContent
-          className={`${
-            isMobile && viewMode === "zoom"
-              ? "fixed inset-0 max-w-none max-h-none m-0 p-0 bg-black"
-              : "max-w-4xl max-h-[95vh] overflow-hidden"
-          }`}
-        >
-          {(!isMobile || viewMode !== "zoom") && (
-            <DialogHeader>
-              <DialogTitle>Journal Entry</DialogTitle>
-            </DialogHeader>
-          )}
-          {selectedEntry && (
-            <div
-              className={`${isMobile && viewMode === "zoom" ? "h-full" : "mt-4"}`}
-              {...(isMobile ? swipeHandlers : {})}
-            >
-              <div
-                className={`${isMobile && viewMode === "zoom" ? "h-full" : "h-[70vh] mb-4"}`}
-              >
-                <ZoomableImage
-                  src={selectedEntry.imageUrl}
-                  alt="Journal entry"
-                  className="w-full h-full"
-                />
-              </div>
-              {(!isMobile || viewMode !== "zoom") && (
-                <div className="flex justify-between items-center text-sm text-muted-foreground pt-4 border-t">
-                  <span>
-                    Posted on{" "}
-                    {new Date(selectedEntry.createdAt).toLocaleDateString()}
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+        render={{
+          buttonPrev: () => null,
+          buttonNext: () => null,
+        }}
+      />
 
       {/* Settings Dialog */}
       <Dialog open={showSettings} onOpenChange={setShowSettings}>

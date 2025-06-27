@@ -1,76 +1,243 @@
 @tailwind base;
-  @tailwind components;
-  @tailwind utilities;
+@tailwind components;
+@tailwind utilities;
 
-  @layer base {
-    :root {
-      --background: 0 0% 100%;
-      --foreground: 222.2 84% 4.9%;
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
 
-      --card: 0 0% 100%;
-      --card-foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
 
-      --popover: 0 0% 100%;
-      --popover-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
 
-      --primary: 222.2 47.4% 11.2%;
-      --primary-foreground: 210 40% 98%;
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
 
-      --secondary: 210 40% 96.1%;
-      --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
 
-      --muted: 210 40% 96.1%;
-      --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
 
-      --accent: 210 40% 96.1%;
-      --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
 
-      --destructive: 0 84.2% 60.2%;
-      --destructive-foreground: 210 40% 98%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
 
-      --border: 214.3 31.8% 91.4%;
-      --input: 214.3 31.8% 91.4%;
-      --ring: 222.2 84% 4.9%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
 
-      --radius: 0.5rem;
-    }
-
-    .dark {
-      --background: 222.2 84% 4.9%;
-      --foreground: 210 40% 98%;
-
-      --card: 222.2 84% 4.9%;
-      --card-foreground: 210 40% 98%;
-
-      --popover: 222.2 84% 4.9%;
-      --popover-foreground: 210 40% 98%;
-
-      --primary: 210 40% 98%;
-      --primary-foreground: 222.2 47.4% 11.2%;
-
-      --secondary: 217.2 32.6% 17.5%;
-      --secondary-foreground: 210 40% 98%;
-
-      --muted: 217.2 32.6% 17.5%;
-      --muted-foreground: 215 20.2% 65.1%;
-
-      --accent: 217.2 32.6% 17.5%;
-      --accent-foreground: 210 40% 98%;
-
-      --destructive: 0 62.8% 30.6%;
-      --destructive-foreground: 210 40% 98%;
-
-      --border: 217.2 32.6% 17.5%;
-      --input: 217.2 32.6% 17.5%;
-      --ring: 212.7 26.8% 83.9%;
-    }
+    --radius: 0.5rem;
   }
 
-  @layer base {
-    * {
-      @apply border-border;
-    }
-    body {
-      @apply bg-background text-foreground;
-    }
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
   }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* React Image Gallery Custom Styles */
+.journal-gallery {
+  height: 100% !important;
+}
+
+.journal-gallery .image-gallery-content {
+  background: transparent !important;
+  height: 100% !important;
+}
+
+.journal-gallery .image-gallery-slide {
+  background: transparent !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 100% !important;
+  padding: 0 !important;
+}
+
+.journal-gallery .image-gallery-image {
+  height: 100% !important;
+  width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+}
+
+/* Enable pinch-to-zoom for React Image Gallery */
+.journal-gallery-mobile .image-gallery-image {
+  width: 100% !important;
+  height: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  /* Allow touch interactions for zoom */
+  touch-action: pinch-zoom !important;
+  overflow: hidden !important;
+}
+
+.journal-gallery-mobile .image-gallery-image img {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100vw !important;
+  max-height: calc(100vh - 8rem) !important;
+  object-fit: contain !important;
+  object-position: center !important;
+  /* Enable pinch-to-zoom */
+  touch-action: pinch-zoom !important;
+  /* Allow zooming beyond container */
+  transform-origin: center center !important;
+  /* Enable hardware acceleration */
+  will-change: transform !important;
+  /* Prevent text selection during zoom */
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  /* Smooth zoom transitions */
+  transition: transform 0.2s ease-out !important;
+}
+
+/* For portrait/vertical images, allow them to use more width */
+@media (max-width: 768px) {
+  .journal-gallery-mobile .image-gallery-image img {
+    min-height: 60vh !important;
+    max-height: calc(100vh - 8rem) !important;
+  }
+
+  /* Ensure vertical images can use full width when needed */
+  .journal-gallery-mobile .image-gallery-slide {
+    width: 100% !important;
+    touch-action: pinch-zoom !important;
+  }
+
+  .journal-gallery-mobile .image-gallery-image {
+    width: 100% !important;
+    touch-action: pinch-zoom !important;
+  }
+}
+
+.journal-gallery .image-gallery-left-nav,
+.journal-gallery .image-gallery-right-nav {
+  color: white !important;
+  background: rgba(0, 0, 0, 0.3) !important;
+  border-radius: 50% !important;
+  width: 50px !important;
+  height: 50px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 10 !important;
+}
+
+.journal-gallery .image-gallery-left-nav:hover,
+.journal-gallery .image-gallery-right-nav:hover {
+  background: rgba(0, 0, 0, 0.6) !important;
+}
+
+.journal-gallery .image-gallery-bullets {
+  bottom: 20px !important;
+  z-index: 10 !important;
+}
+
+.journal-gallery .image-gallery-bullet {
+  background: rgba(255, 255, 255, 0.5) !important;
+  border: 2px solid rgba(255, 255, 255, 0.8) !important;
+}
+
+.journal-gallery .image-gallery-bullet.active {
+  background: white !important;
+}
+
+/* Hide default image gallery icons and use custom styling */
+.journal-gallery .image-gallery-svg {
+  width: 20px !important;
+  height: 20px !important;
+}
+
+/* Fullscreen button styling for mobile */
+.journal-gallery .image-gallery-fullscreen-button {
+  background: rgba(0, 0, 0, 0.3) !important;
+  border-radius: 50% !important;
+  width: 50px !important;
+  height: 50px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: white !important;
+  top: 20px !important;
+  right: 20px !important;
+  z-index: 15 !important;
+}
+
+.journal-gallery .image-gallery-fullscreen-button:hover {
+  background: rgba(0, 0, 0, 0.6) !important;
+}
+
+/* Enhanced zoom support for all gallery images */
+.journal-gallery .image-gallery-slide {
+  touch-action: pinch-zoom !important;
+}
+
+.journal-gallery .image-gallery-image {
+  touch-action: pinch-zoom !important;
+}
+
+.journal-gallery .image-gallery-image img {
+  /* Enable hardware acceleration for smooth zooming */
+  will-change: transform !important;
+  /* Prevent image selection during zoom */
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  /* Enable pinch-to-zoom */
+  touch-action: pinch-zoom !important;
+}
+
+/* Zoom cursor states for desktop */
+@media (min-width: 768px) {
+  .journal-gallery .image-gallery-image img:hover {
+    cursor: zoom-in !important;
+  }
+
+  /* When zoomed in, show zoom-out cursor */
+  .journal-gallery .image-gallery-image img[style*="transform"] {
+    cursor: zoom-out !important;
+  }
+}

@@ -109,6 +109,11 @@ const ZoomableImage = ({ src, alt, className = "" }: ZoomableImageProps) => {
     }
   };
 
+  // Reset zoom state when image source changes
+  useEffect(() => {
+    handleReset();
+  }, [src]);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
