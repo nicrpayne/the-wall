@@ -625,15 +625,6 @@ const CommunityWall = ({
                   </div>
                 )}
               </div>
-              {!isRearrangeMode && !isDeleteMode && (
-                <p className="text-xs text-muted-foreground">
-                  Container width:{" "}
-                  {typeof window !== "undefined"
-                    ? window.innerWidth
-                    : "unknown"}
-                  px
-                </p>
-              )}
             </div>
 
             {isRearrangeMode ? (
