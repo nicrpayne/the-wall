@@ -752,7 +752,7 @@ const CommunityWall = ({
                       onClick={({ index }) =>
                         !isDeleteMode && setLightboxIndex(index)
                       }
-                      spacing={16}
+                      spacing={32}
                       padding={0}
                       columns={(containerWidth) => {
                         console.log(

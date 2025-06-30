@@ -248,6 +248,8 @@
   max-width: none !important;
   display: block !important;
   overflow: visible !important;
+  /* Enable pinch-to-zoom for the entire container */
+  touch-action: pinch-zoom !important;
 }
 
 /* Override any conflicting styles from react-photo-album */
@@ -278,13 +280,20 @@
   height: auto !important;
   display: block !important;
   border-radius: 8px !important;
+  /* Enable pinch-to-zoom on individual images */
+  touch-action: pinch-zoom !important;
+  /* Prevent text selection during zoom */
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  /* Enable hardware acceleration for smooth zooming */
+  will-change: transform !important;
 }
 
 /* Force responsive behavior */
 @media (max-width: 639px) {
   .photo-album-container > div {
     display: flex !important;
-    gap: 12px !important;
+    gap: 20px !important;
   }
 
   .photo-album-container > div > div:nth-child(n + 3) {
@@ -295,7 +304,7 @@
 @media (min-width: 640px) and (max-width: 1023px) {
   .photo-album-container > div {
     display: flex !important;
-    gap: 14px !important;
+    gap: 18px !important;
   }
 
   .photo-album-container > div > div:nth-child(n + 4) {
