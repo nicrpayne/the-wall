@@ -248,8 +248,8 @@
   max-width: none !important;
   display: block !important;
   overflow: visible !important;
-  /* Enable pinch-to-zoom for the entire container */
-  touch-action: pinch-zoom !important;
+  /* Allow both scrolling and pinch-to-zoom */
+  touch-action: pan-x pan-y pinch-zoom !important;
 }
 
 /* Override any conflicting styles from react-photo-album */
@@ -280,8 +280,8 @@
   height: auto !important;
   display: block !important;
   border-radius: 8px !important;
-  /* Enable pinch-to-zoom on individual images */
-  touch-action: pinch-zoom !important;
+  /* Allow both scrolling and pinch-to-zoom on images */
+  touch-action: pan-x pan-y pinch-zoom !important;
   /* Prevent text selection during zoom */
   user-select: none !important;
   -webkit-user-select: none !important;
@@ -316,5 +316,114 @@
   .photo-album-container > div {
     display: flex !important;
     gap: 16px !important;
+  }
+}
+
+/* Yet Another React Lightbox - Enable pinch-to-zoom with proper initial sizing */
+.yarl__container {
+  /* Allow both scrolling and pinch-to-zoom */
+  touch-action: pan-x pan-y pinch-zoom !important;
+}
+
+.yarl__slide {
+  /* Enable touch interactions for the slide container */
+  touch-action: pan-x pan-y pinch-zoom !important;
+  /* Ensure slides start at proper size */
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.yarl__slide_image {
+  /* Enable pinch-to-zoom on the actual image */
+  touch-action: pinch-zoom !important;
+  /* Enable hardware acceleration for smooth zooming */
+  will-change: transform !important;
+  /* Prevent text selection during zoom */
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  /* Allow zooming beyond container bounds */
+  transform-origin: center center !important;
+  /* Smooth zoom transitions */
+  transition: transform 0.2s ease-out !important;
+  /* Ensure images start at proper fit-to-viewport size */
+  max-width: 100vw !important;
+  max-height: 100vh !important;
+  width: auto !important;
+  height: auto !important;
+  object-fit: contain !important;
+  /* Reset any forced scaling */
+  transform: none !important;
+}
+
+/* Ensure the image wrapper doesn't interfere with touch events */
+.yarl__slide_image_wrapper {
+  touch-action: pinch-zoom !important;
+  overflow: visible !important;
+  /* Center the image properly */
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Allow navigation gestures while preserving zoom */
+.yarl__navigation {
+  touch-action: pan-x !important;
+}
+
+/* Ensure toolbar doesn't interfere with touch events */
+.yarl__toolbar {
+  touch-action: none !important;
+  pointer-events: auto !important;
+}
+
+/* Force proper initial image sizing */
+.yarl__slide_image[style] {
+  /* Override any inline styles that might cause initial zoom issues */
+  max-width: 100vw !important;
+  max-height: 100vh !important;
+  width: auto !important;
+  height: auto !important;
+  transform: none !important;
+}
+
+/* Mobile-specific lightbox optimizations */
+@media (max-width: 768px) {
+  .yarl__slide_image {
+    /* Optimize for mobile touch interactions */
+    touch-action: pinch-zoom !important;
+    /* Ensure images start at proper mobile size */
+    max-width: 100vw !important;
+    max-height: calc(100vh - 60px) !important;
+    width: auto !important;
+    height: auto !important;
+    object-fit: contain !important;
+    /* Reset any transforms that might cause initial zoom */
+    transform: none !important;
+  }
+
+  .yarl__container {
+    /* Allow both horizontal swipe and pinch-zoom on mobile */
+    touch-action: pan-x pinch-zoom !important;
+  }
+
+  .yarl__slide {
+    /* Enable both swipe navigation and zoom on mobile */
+    touch-action: pan-x pinch-zoom !important;
+    /* Ensure proper centering on mobile */
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .yarl__slide_image_wrapper {
+    /* Ensure wrapper doesn't interfere with mobile sizing */
+    width: 100% !important;
+    height: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
   }
 }
