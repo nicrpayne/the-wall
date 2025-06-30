@@ -118,8 +118,10 @@ const WallPage = () => {
     const fileArray = Array.isArray(files) ? files : [files];
 
     try {
-      console.log("Starting file upload...", {
+      console.log("🔵 [WallPage] Starting file upload...", {
         fileCount: fileArray.length,
+        wallId: wall.id,
+        isAdminMode,
         files: fileArray.map((f) => ({
           name: f.name,
           size: f.size,
@@ -166,17 +168,40 @@ const WallPage = () => {
         );
       } else {
         // Regular user mode: Create submissions for review
-        const uploadPromises = fileArray.map(async (file) => {
+        const uploadPromises = fileArray.map(async (file, index) => {
+          console.log(
+            `🔵 [WallPage] Processing file ${index + 1}/${fileArray.length}:`,
+            {
+              name: file.name,
+              size: file.size,
+              type: file.type,
+            },
+          );
+
           const imageUrl = await submissionsApi.uploadImage(file);
-          return submissionsApi.create({
+          console.log(
+            `🔵 [WallPage] Image uploaded successfully for file ${index + 1}:`,
+            imageUrl,
+          );
+
+          const submission = await submissionsApi.create({
             wall_id: wall.id,
             image_url: imageUrl,
             status: "pending",
           });
+          console.log(
+            `🔵 [WallPage] Submission created for file ${index + 1}:`,
+            submission,
+          );
+
+          return submission;
         });
 
-        await Promise.all(uploadPromises);
-        console.log("Submissions created successfully");
+        const submissions = await Promise.all(uploadPromises);
+        console.log(
+          "🔵 [WallPage] All submissions created successfully:",
+          submissions,
+        );
         alert(
           `Your ${fileArray.length === 1 ? "journal entry has" : `${fileArray.length} journal entries have`} been submitted for review!`,
         );
@@ -244,6 +269,92 @@ const WallPage = () => {
     });
   };
 
+  const handleDeleteEntries = async (entryIds: string[]) => {
+    if (!wall) {
+      console.error("🔴 [WallPage] No wall found, cannot delete entries");
+      return;
+    }
+
+    if (entryIds.length === 0) {
+      console.warn("🟡 [WallPage] No entry IDs provided for deletion");
+      return;
+    }
+
+    try {
+      console.log(
+        "🔵 [WallPage] Starting deletion process for entries:",
+        entryIds,
+      );
+
+      // Delete entries from database (only from entries table, never submissions)
+      const deletePromises = entryIds.map(async (entryId) => {
+        try {
+          await entriesApi.delete(entryId);
+          return { entryId, success: true };
+        } catch (error) {
+          console.error(
+            `🔴 [WallPage] Failed to delete entry ${entryId}:`,
+            error,
+          );
+          return {
+            entryId,
+            success: false,
+            error: error instanceof Error ? error.message : String(error),
+          };
+        }
+      });
+
+      const deleteResults = await Promise.all(deletePromises);
+      const successfulDeletions = deleteResults.filter((r) => r.success);
+      const failedDeletions = deleteResults.filter((r) => !r.success);
+      const successfulIds = successfulDeletions.map((r) => r.entryId);
+
+      console.log("🔵 [WallPage] Delete results:", {
+        total: deleteResults.length,
+        successful: successfulDeletions.length,
+        failed: failedDeletions.length,
+        successfulIds,
+      });
+
+      // Update state to remove successfully deleted entries from UI
+      if (successfulIds.length > 0) {
+        setApprovedEntries((prev) =>
+          prev.filter((entry) => !successfulIds.includes(entry.id)),
+        );
+        setDirectEntries((prev) =>
+          prev.filter((entry) => !successfulIds.includes(entry.id)),
+        );
+      }
+
+      // Show appropriate toast messages
+      if (failedDeletions.length > 0 && successfulDeletions.length > 0) {
+        toast({
+          title: "Partial Deletion Error",
+          description: `${successfulDeletions.length} entries deleted successfully, but ${failedDeletions.length} failed. Check console for details.`,
+          variant: "destructive",
+        });
+      } else if (failedDeletions.length > 0) {
+        toast({
+          title: "Deletion Failed",
+          description: "Failed to delete entries. Please try again.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Success",
+          description: `Successfully deleted ${successfulDeletions.length} ${successfulDeletions.length === 1 ? "entry" : "entries"}.`,
+        });
+      }
+    } catch (error) {
+      console.error("🔴 [WallPage] Error in handleDeleteEntries:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete entries. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="bg-background min-h-screen flex items-center justify-center">
@@ -284,6 +395,11 @@ const WallPage = () => {
     );
   }
 
+  // Check if user has already submitted to this wall (only for regular users)
+  const hasVisited =
+    !isAdminMode && localStorage.getItem(`wall-visited-${wallId}`);
+  const shouldShowUploader = isAdminMode ? false : !hasVisited;
+
   return (
     <div className="bg-background min-h-screen">
       <CommunityWall
@@ -296,6 +412,7 @@ const WallPage = () => {
         isAdminMode={isAdminMode}
         onUpdateWall={handleUpdateWall}
         onReorderEntries={handleReorderEntries}
+        onDeleteEntries={handleDeleteEntries}
         wallData={
           wall
             ? {

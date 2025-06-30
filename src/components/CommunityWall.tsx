@@ -9,6 +9,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Share2,
   AlertCircle,
@@ -19,6 +20,8 @@ import {
   Save,
   X,
   GripVertical,
+  Trash2,
+  Check,
 } from "lucide-react";
 import JournalUploader from "./JournalUploader";
 import WallCreationForm from "./WallCreationForm";
@@ -47,6 +50,7 @@ interface CommunityWallProps {
     isPrivate: boolean;
   }) => Promise<void>;
   onReorderEntries?: (reorderedEntries: JournalEntry[]) => Promise<void>;
+  onDeleteEntries?: (entryIds: string[]) => Promise<void>;
   wallData?: {
     id: string;
     title: string;
@@ -65,6 +69,7 @@ const CommunityWall = ({
   isAdminMode = false,
   onUpdateWall = async () => {},
   onReorderEntries = async () => {},
+  onDeleteEntries = async () => {},
   wallData,
 }: CommunityWallProps) => {
   const [showUploader, setShowUploader] = useState(isFirstVisit);
@@ -82,6 +87,13 @@ const CommunityWall = ({
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
+  // Delete functionality states
+  const [isDeleteMode, setIsDeleteMode] = useState(false);
+  const [selectedEntries, setSelectedEntries] = useState<Set<string>>(
+    new Set(),
+  );
+  const [isDeleting, setIsDeleting] = useState(false);
+
   // Handle rearrange mode activation
   const handleRearrangeModeToggle = (enabled: boolean) => {
     setIsRearrangeMode(enabled);
@@ -92,11 +104,7 @@ const CommunityWall = ({
     // Skip this check in admin mode
     if (!isAdminMode) {
       const hasVisited = localStorage.getItem(`wall-visited-${wallId}`);
-      if (hasVisited) {
-        setShowUploader(false);
-      } else {
-        setShowUploader(isFirstVisit);
-      }
+      setShowUploader(!hasVisited); // Show uploader if user hasn't visited/submitted
     } else {
       setShowUploader(false); // Admin doesn't need to submit first
     }
@@ -148,12 +156,10 @@ const CommunityWall = ({
     }
   };
 
-  // Transform entries for PhotoAlbum
+  // Transform entries for PhotoAlbum - let the library handle dimensions automatically
   const photos = (isRearrangeMode ? reorderedEntries : entries).map(
     (entry) => ({
       src: entry.imageUrl,
-      width: 400, // Default width - PhotoAlbum will handle responsive sizing
-      height: 600, // Default height for portrait orientation
       alt: `Journal entry from ${new Date(entry.createdAt).toLocaleDateString()}`,
       key: entry.id,
     }),
@@ -242,6 +248,48 @@ const CommunityWall = ({
     handleRearrangeModeToggle(false);
   };
 
+  // Delete functionality
+  const handleDeleteModeToggle = (enabled: boolean) => {
+    setIsDeleteMode(enabled);
+    if (!enabled) {
+      setSelectedEntries(new Set());
+    }
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedEntries(new Set(entries.map((entry) => entry.id)));
+    } else {
+      setSelectedEntries(new Set());
+    }
+  };
+
+  const handleSelectEntry = (entryId: string, checked: boolean) => {
+    const newSelected = new Set(selectedEntries);
+    if (checked) {
+      newSelected.add(entryId);
+    } else {
+      newSelected.delete(entryId);
+    }
+    setSelectedEntries(newSelected);
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedEntries.size === 0) return;
+
+    setIsDeleting(true);
+    try {
+      // Only delete entries (approved content on walls), never submissions
+      await onDeleteEntries(Array.from(selectedEntries));
+      setSelectedEntries(new Set());
+      setIsDeleteMode(false);
+    } catch (error) {
+      console.error("Error deleting entries:", error);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   if (showUploader) {
     return (
       <div className="bg-background min-h-screen p-4 md:p-8">
@@ -300,7 +348,7 @@ const CommunityWall = ({
                   <Upload className="h-4 w-4 mr-2" />
                   Add Entry
                 </Button>
-                {!isRearrangeMode ? (
+                {!isRearrangeMode && !isDeleteMode ? (
                   <>
                     <Button
                       variant="outline"
@@ -314,13 +362,22 @@ const CommunityWall = ({
                     <Button
                       variant="outline"
                       size="sm"
+                      onClick={() => handleDeleteModeToggle(true)}
+                      disabled={entries.length === 0}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => setShowSettings(true)}
                     >
                       <Settings className="h-4 w-4 mr-2" />
                       Settings
                     </Button>
                   </>
-                ) : (
+                ) : isRearrangeMode ? (
                   <>
                     <Button
                       variant="outline"
@@ -339,6 +396,28 @@ const CommunityWall = ({
                       Cancel
                     </Button>
                   </>
+                ) : (
+                  <>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={handleDeleteSelected}
+                      disabled={selectedEntries.size === 0 || isDeleting}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      {isDeleting
+                        ? "Deleting..."
+                        : `Delete Selected (${selectedEntries.size})`}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDeleteModeToggle(false)}
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      Cancel
+                    </Button>
+                  </>
                 )}
               </>
             )}
@@ -346,7 +425,7 @@ const CommunityWall = ({
               variant="outline"
               size="sm"
               onClick={handleShareWall}
-              disabled={isRearrangeMode}
+              disabled={isRearrangeMode || isDeleteMode}
             >
               <Share2 className="h-4 w-4 mr-2" />
               Share Wall
@@ -374,6 +453,16 @@ const CommunityWall = ({
           </Alert>
         )}
 
+        {isDeleteMode && (
+          <Alert className="mb-6">
+            <Trash2 className="h-4 w-4" />
+            <AlertDescription>
+              Select entries to delete. Use "Select All" to select all entries
+              at once.
+            </AlertDescription>
+          </Alert>
+        )}
+
         {entries.length === 0 ? (
           <Card className="p-8 text-center">
             <h2 className="text-xl font-semibold mb-2">No Entries Yet</h2>
@@ -384,9 +473,49 @@ const CommunityWall = ({
         ) : (
           <>
             <div className="flex justify-between items-center mb-6">
-              <p className="text-sm text-muted-foreground">
-                {entries.length} entries {isRearrangeMode && "(Rearrange Mode)"}
-              </p>
+              <div className="flex items-center gap-4">
+                <p className="text-sm text-muted-foreground">
+                  {entries.length} entries{" "}
+                  {isRearrangeMode && "(Rearrange Mode)"}{" "}
+                  {isDeleteMode && "(Delete Mode)"}
+                  {console.log(
+                    "🔵 [CommunityWall] Rendering entry count:",
+                    entries.length,
+                    "entries:",
+                    entries.map((e) => ({
+                      id: e.id,
+                      imageUrl: e.imageUrl.substring(0, 30) + "...",
+                    })),
+                  )}
+                </p>
+                {isDeleteMode && entries.length > 0 && (
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="select-all"
+                      checked={
+                        selectedEntries.size === entries.length &&
+                        entries.length > 0
+                      }
+                      onCheckedChange={handleSelectAll}
+                    />
+                    <label
+                      htmlFor="select-all"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      Select All
+                    </label>
+                  </div>
+                )}
+              </div>
+              {!isRearrangeMode && !isDeleteMode && (
+                <p className="text-xs text-muted-foreground">
+                  Container width:{" "}
+                  {typeof window !== "undefined"
+                    ? window.innerWidth
+                    : "unknown"}
+                  px
+                </p>
+              )}
             </div>
 
             {isRearrangeMode ? (
@@ -432,38 +561,70 @@ const CommunityWall = ({
                   </Card>
                 ))}
               </div>
+            ) : isDeleteMode ? (
+              // Delete mode - use simple grid with checkboxes
+              <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                {entries.map((entry, index) => (
+                  <Card
+                    key={entry.id}
+                    className={`overflow-hidden transition-all duration-200 ${
+                      selectedEntries.has(entry.id)
+                        ? "ring-2 ring-destructive"
+                        : "hover:ring-2 hover:ring-muted"
+                    }`}
+                  >
+                    <div className="relative aspect-[3/4]">
+                      <div className="absolute top-2 left-2 z-10">
+                        <Checkbox
+                          checked={selectedEntries.has(entry.id)}
+                          onCheckedChange={(checked) =>
+                            handleSelectEntry(entry.id, checked as boolean)
+                          }
+                          className="bg-white/90 border-2"
+                        />
+                      </div>
+                      <img
+                        src={entry.imageUrl}
+                        alt="Journal entry"
+                        className="object-cover w-full h-full cursor-pointer"
+                        loading="lazy"
+                        onClick={() =>
+                          handleSelectEntry(
+                            entry.id,
+                            !selectedEntries.has(entry.id),
+                          )
+                        }
+                      />
+                      {selectedEntries.has(entry.id) && (
+                        <div className="absolute inset-0 bg-destructive/20 flex items-center justify-center">
+                          <div className="bg-destructive text-destructive-foreground rounded-full p-2">
+                            <Check className="h-4 w-4" />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </Card>
+                ))}
+              </div>
             ) : (
               // Normal mode - use PhotoAlbum masonry layout
-              <PhotoAlbum
-                photos={photos}
-                layout="masonry"
-                targetRowHeight={300}
-                onClick={({ index }) => setLightboxIndex(index)}
-                spacing={8}
-                padding={0}
-                sizes={{
-                  size: "calc(100vw - 2rem)",
-                  sizes: [
-                    {
-                      viewport: "(max-width: 640px)",
-                      size: "calc(50vw - 1rem)",
-                    },
-                    {
-                      viewport: "(max-width: 768px)",
-                      size: "calc(33vw - 1rem)",
-                    },
-                    {
-                      viewport: "(max-width: 1024px)",
-                      size: "calc(25vw - 1rem)",
-                    },
-                    {
-                      viewport: "(max-width: 1280px)",
-                      size: "calc(20vw - 1rem)",
-                    },
-                    { size: "calc(16.66vw - 1rem)" },
-                  ],
-                }}
-              />
+              <div className="w-full" style={{ minHeight: "200px" }}>
+                <PhotoAlbum
+                  photos={photos}
+                  layout="masonry"
+                  targetRowHeight={300}
+                  onClick={({ index }) =>
+                    !isDeleteMode && setLightboxIndex(index)
+                  }
+                  spacing={16}
+                  padding={0}
+                  columns={(containerWidth) => {
+                    if (containerWidth < 640) return 2;
+                    if (containerWidth < 1024) return 3;
+                    return 4;
+                  }}
+                />
+              </div>
             )}
           </>
         )}

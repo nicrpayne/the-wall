@@ -39,8 +39,10 @@ import { useToast } from "@/components/ui/use-toast";
 import {
   wallsApi,
   submissionsApi,
+  entriesApi,
   Wall,
   Submission,
+  Entry,
   subscribeToSubmissions,
 } from "../lib/supabase";
 import WallCreationForm from "./WallCreationForm";
@@ -57,6 +59,7 @@ const AdminDashboard = () => {
   const { toast } = useToast();
   const [walls, setWalls] = useState<Wall[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [allEntries, setAllEntries] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(true);
   const [previousSubmissionCount, setPreviousSubmissionCount] = useState(0);
 
@@ -72,6 +75,32 @@ const AdminDashboard = () => {
         setWalls(wallsData);
         setSubmissions(submissionsData);
         setPreviousSubmissionCount(submissionsData.length);
+
+        // Load all entries from all walls to get accurate counts
+        const allEntriesPromises = wallsData.map((wall) =>
+          entriesApi.getByWallId(wall.id).catch((error) => {
+            console.error(`Error loading entries for wall ${wall.id}:`, error);
+            return [];
+          }),
+        );
+        const entriesArrays = await Promise.all(allEntriesPromises);
+        const flatEntries = entriesArrays.flat();
+        setAllEntries(flatEntries);
+
+        console.log("🔵 [AdminDashboard] Loaded data:", {
+          walls: wallsData.length,
+          submissions: submissionsData.length,
+          directEntries: flatEntries.length,
+          wallsWithCounts: wallsData.map((wall) => ({
+            id: wall.id,
+            title: wall.title,
+            approvedSubmissions: submissionsData.filter(
+              (s) => s.wall_id === wall.id && s.status === "approved",
+            ).length,
+            directEntries: flatEntries.filter((e) => e.wall_id === wall.id)
+              .length,
+          })),
+        });
       } catch (error) {
         console.error("Error loading data:", error);
         toast({
@@ -96,12 +125,27 @@ const AdminDashboard = () => {
     };
   }, [toast]);
 
-  // Helper functions to calculate submission counts dynamically
-  const getSubmissionCount = (wallId: string) => {
-    return submissions.filter(
+  // Helper functions to calculate entry counts dynamically
+  const getTotalEntryCount = (wallId: string) => {
+    // Count both approved submissions and direct entries
+    const approvedSubmissionCount = submissions.filter(
       (submission) =>
         submission.wall_id === wallId && submission.status === "approved",
     ).length;
+
+    const directEntryCount = allEntries.filter(
+      (entry) => entry.wall_id === wallId,
+    ).length;
+
+    const total = approvedSubmissionCount + directEntryCount;
+
+    console.log(`🔵 [AdminDashboard] Entry count for wall ${wallId}:`, {
+      approvedSubmissions: approvedSubmissionCount,
+      directEntries: directEntryCount,
+      total,
+    });
+
+    return total;
   };
 
   const getPendingCount = (wallId: string) => {
@@ -417,9 +461,9 @@ const AdminDashboard = () => {
                         </div>
                         <div className="flex justify-between">
                           <span className="text-sm text-muted-foreground">
-                            Submissions
+                            Total Entries
                           </span>
-                          <span>{getSubmissionCount(wall.id)}</span>
+                          <span>{getTotalEntryCount(wall.id)}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-sm text-muted-foreground">

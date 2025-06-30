@@ -170,16 +170,36 @@ export const submissionsApi = {
   async create(
     submission: Omit<Submission, "id" | "submitted_at">,
   ): Promise<Submission> {
+    console.log("🔵 [submissionsApi.create] Creating submission:", submission);
+
+    const submissionData = {
+      ...submission,
+      submitted_at: new Date().toISOString(),
+    };
+
+    console.log(
+      "🔵 [submissionsApi.create] Submission data with timestamp:",
+      submissionData,
+    );
+
     const { data, error } = await supabase
       .from("submissions")
-      .insert({
-        ...submission,
-        submitted_at: new Date().toISOString(),
-      })
+      .insert(submissionData)
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error(
+        "🔴 [submissionsApi.create] Error creating submission:",
+        error,
+      );
+      throw error;
+    }
+
+    console.log(
+      "🔵 [submissionsApi.create] Submission created successfully:",
+      data,
+    );
     return data;
   },
 
@@ -195,8 +215,17 @@ export const submissionsApi = {
     if (error) throw error;
   },
 
+  // NOTE: We never delete submissions - they are kept for record keeping
+  // Only entries (approved content) can be deleted from walls
+
   async uploadImage(file: File): Promise<string> {
     try {
+      console.log("🔵 [submissionsApi.uploadImage] Starting upload for file:", {
+        name: file.name,
+        size: file.size,
+        type: file.type,
+      });
+
       // Validate file
       if (!file) {
         throw new Error("No file provided");
@@ -214,10 +243,15 @@ export const submissionsApi = {
         "image/jpg",
         "image/png",
         "image/webp",
+        "image/gif",
       ];
       if (!allowedTypes.includes(file.type)) {
+        console.error("🔴 [submissionsApi.uploadImage] Invalid file type:", {
+          fileType: file.type,
+          allowedTypes,
+        });
         throw new Error(
-          "Invalid file type. Please upload a JPEG, PNG, or WebP image.",
+          "Invalid file type. Please upload a JPEG, PNG, WebP, or GIF image.",
         );
       }
 
@@ -225,12 +259,15 @@ export const submissionsApi = {
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
       const filePath = `journal-entries/${fileName}`;
 
-      console.log("Uploading file:", {
-        fileName,
-        filePath,
-        fileSize: file.size,
-        fileType: file.type,
-      });
+      console.log(
+        "🔵 [submissionsApi.uploadImage] File validation passed, uploading:",
+        {
+          fileName,
+          filePath,
+          fileSize: file.size,
+          fileType: file.type,
+        },
+      );
 
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from("images")
@@ -240,11 +277,17 @@ export const submissionsApi = {
         });
 
       if (uploadError) {
-        console.error("Upload error:", uploadError);
+        console.error(
+          "🔴 [submissionsApi.uploadImage] Upload error:",
+          uploadError,
+        );
         throw new Error(`Upload failed: ${uploadError.message}`);
       }
 
-      console.log("Upload successful:", uploadData);
+      console.log(
+        "🔵 [submissionsApi.uploadImage] Upload successful:",
+        uploadData,
+      );
 
       const { data } = supabase.storage.from("images").getPublicUrl(filePath);
 
@@ -252,10 +295,16 @@ export const submissionsApi = {
         throw new Error("Failed to get public URL for uploaded image");
       }
 
-      console.log("Public URL generated:", data.publicUrl);
+      console.log(
+        "🔵 [submissionsApi.uploadImage] Public URL generated:",
+        data.publicUrl,
+      );
       return data.publicUrl;
     } catch (error) {
-      console.error("Error in uploadImage:", error);
+      console.error(
+        "🔴 [submissionsApi.uploadImage] Error in uploadImage:",
+        error,
+      );
       throw error;
     }
   },
@@ -308,8 +357,22 @@ export const entriesApi = {
   },
 
   async delete(id: string): Promise<void> {
+    console.log(
+      "🔵 [entriesApi.delete] Deleting entry from entries table:",
+      id,
+    );
+
     const { error } = await supabase.from("entries").delete().eq("id", id);
-    if (error) throw error;
+
+    if (error) {
+      console.error("🔴 [entriesApi.delete] Delete failed:", error);
+      throw error;
+    }
+
+    console.log(
+      "🟢 [entriesApi.delete] Entry deleted successfully from entries table:",
+      id,
+    );
   },
 };
 
