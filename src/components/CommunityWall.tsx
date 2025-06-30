@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import JournalUploader from "./JournalUploader";
 import WallCreationForm from "./WallCreationForm";
-import PhotoAlbum from "react-photo-album";
+import { ColumnsPhotoAlbum } from "react-photo-album";
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 
@@ -94,6 +94,17 @@ const CommunityWall = ({
   );
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Photo dimensions state for masonry layout
+  const [photosWithDimensions, setPhotosWithDimensions] = useState<
+    Array<{
+      src: string;
+      alt: string;
+      key: string;
+      width: number;
+      height: number;
+    }>
+  >([]);
+
   // Handle rearrange mode activation
   const handleRearrangeModeToggle = (enabled: boolean) => {
     setIsRearrangeMode(enabled);
@@ -123,6 +134,119 @@ const CommunityWall = ({
   // Update reordered entries when entries prop changes
   useEffect(() => {
     setReorderedEntries(entries);
+  }, [entries]);
+
+  // Load image dimensions for masonry layout
+  useEffect(() => {
+    const loadImageDimensions = async () => {
+      console.log(
+        "🔍 [CommunityWall] Loading image dimensions for",
+        entries.length,
+        "entries",
+      );
+
+      if (entries.length === 0) {
+        console.log("🔍 [CommunityWall] No entries, clearing photos");
+        setPhotosWithDimensions([]);
+        return;
+      }
+
+      console.log(
+        "🔍 [CommunityWall] Starting to load dimensions for entries:",
+        entries.map((e) => ({
+          id: e.id,
+          url: e.imageUrl.substring(0, 50) + "...",
+        })),
+      );
+
+      const photosWithDims = await Promise.all(
+        entries.map((entry, index) => {
+          return new Promise<{
+            src: string;
+            alt: string;
+            key: string;
+            width: number;
+            height: number;
+          }>((resolve) => {
+            const img = new Image();
+            img.crossOrigin = "anonymous"; // Add CORS support
+
+            img.onload = () => {
+              console.log(
+                `✅ [CommunityWall] Image ${index + 1}/${entries.length} loaded:`,
+                {
+                  id: entry.id,
+                  dimensions: `${img.naturalWidth}x${img.naturalHeight}`,
+                  url: entry.imageUrl.substring(0, 50) + "...",
+                },
+              );
+
+              resolve({
+                src: entry.imageUrl,
+                alt: `Journal entry from ${new Date(entry.createdAt).toLocaleDateString()}`,
+                key: entry.id,
+                width: img.naturalWidth,
+                height: img.naturalHeight,
+              });
+            };
+
+            img.onerror = (error) => {
+              console.warn(
+                `❌ [CommunityWall] Image ${index + 1}/${entries.length} failed to load:`,
+                {
+                  id: entry.id,
+                  url: entry.imageUrl.substring(0, 50) + "...",
+                  error,
+                },
+              );
+
+              // Fallback dimensions if image fails to load
+              resolve({
+                src: entry.imageUrl,
+                alt: `Journal entry from ${new Date(entry.createdAt).toLocaleDateString()}`,
+                key: entry.id,
+                width: 400,
+                height: 600,
+              });
+            };
+
+            // Set a timeout to prevent hanging
+            setTimeout(() => {
+              if (!img.complete) {
+                console.warn(
+                  `⏰ [CommunityWall] Image ${index + 1}/${entries.length} timeout:`,
+                  {
+                    id: entry.id,
+                    url: entry.imageUrl.substring(0, 50) + "...",
+                  },
+                );
+
+                resolve({
+                  src: entry.imageUrl,
+                  alt: `Journal entry from ${new Date(entry.createdAt).toLocaleDateString()}`,
+                  key: entry.id,
+                  width: 400,
+                  height: 600,
+                });
+              }
+            }, 10000); // 10 second timeout
+
+            img.src = entry.imageUrl;
+          });
+        }),
+      );
+
+      console.log(
+        "🎯 [CommunityWall] All images processed, setting photos:",
+        photosWithDims.map((p) => ({
+          key: p.key,
+          dimensions: `${p.width}x${p.height}`,
+        })),
+      );
+      setPhotosWithDimensions(photosWithDims);
+    };
+
+    loadImageDimensions();
   }, [entries]);
 
   const handleSubmit = async (files: File | File[]) => {
@@ -156,14 +280,8 @@ const CommunityWall = ({
     }
   };
 
-  // Transform entries for PhotoAlbum - let the library handle dimensions automatically
-  const photos = (isRearrangeMode ? reorderedEntries : entries).map(
-    (entry) => ({
-      src: entry.imageUrl,
-      alt: `Journal entry from ${new Date(entry.createdAt).toLocaleDateString()}`,
-      key: entry.id,
-    }),
-  );
+  // Use photos with dimensions for PhotoAlbum masonry layout
+  const photos = photosWithDimensions;
 
   // Transform entries for Lightbox
   const lightboxSlides = (isRearrangeMode ? reorderedEntries : entries).map(
@@ -330,7 +448,7 @@ const CommunityWall = ({
 
   return (
     <div className="bg-background min-h-screen p-4 md:p-8">
-      <div className="max-w-6xl mx-auto">
+      <div className="w-full max-w-none mx-auto">
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold mb-2">{title}</h1>
@@ -608,22 +726,123 @@ const CommunityWall = ({
               </div>
             ) : (
               // Normal mode - use PhotoAlbum masonry layout
-              <div className="w-full" style={{ minHeight: "200px" }}>
-                <PhotoAlbum
-                  photos={photos}
-                  layout="masonry"
-                  targetRowHeight={300}
-                  onClick={({ index }) =>
-                    !isDeleteMode && setLightboxIndex(index)
-                  }
-                  spacing={16}
-                  padding={0}
-                  columns={(containerWidth) => {
-                    if (containerWidth < 640) return 2;
-                    if (containerWidth < 1024) return 3;
-                    return 4;
-                  }}
-                />
+              <div className="w-full">
+                {console.log("🖼️ [CommunityWall] Rendering PhotoAlbum:", {
+                  entriesLength: entries.length,
+                  photosWithDimensionsLength: photosWithDimensions.length,
+                  photos: photosWithDimensions.map((p) => ({
+                    key: p.key,
+                    dimensions: `${p.width}x${p.height}`,
+                    src: p.src.substring(0, 30) + "...",
+                  })),
+                })}
+                {photosWithDimensions.length > 0 &&
+                photosWithDimensions.length === entries.length ? (
+                  <div
+                    className="photo-album-container"
+                    style={{
+                      width: "100%",
+                      maxWidth: "none",
+                      display: "block",
+                      overflow: "visible",
+                    }}
+                  >
+                    <ColumnsPhotoAlbum
+                      photos={photos}
+                      onClick={({ index }) =>
+                        !isDeleteMode && setLightboxIndex(index)
+                      }
+                      spacing={16}
+                      padding={0}
+                      columns={(containerWidth) => {
+                        console.log(
+                          "📐 [CommunityWall] ColumnsPhotoAlbum columns calculation:",
+                          {
+                            containerWidth,
+                            windowWidth:
+                              typeof window !== "undefined"
+                                ? window.innerWidth
+                                : "unknown",
+                            columns:
+                              containerWidth < 640
+                                ? 2
+                                : containerWidth < 1024
+                                  ? 3
+                                  : 4,
+                          },
+                        );
+                        // Force recalculation based on actual viewport
+                        const actualWidth =
+                          typeof window !== "undefined"
+                            ? window.innerWidth
+                            : containerWidth;
+                        if (actualWidth < 640) return 2;
+                        if (actualWidth < 1024) return 3;
+                        return 4;
+                      }}
+                      renderPhoto={({ photo, imageProps, wrapperStyle }) => {
+                        console.log("🎨 [CommunityWall] Rendering photo:", {
+                          key: photo.key,
+                          dimensions: `${photo.width}x${photo.height}`,
+                          imageProps: {
+                            width: imageProps.width,
+                            height: imageProps.height,
+                          },
+                          wrapperStyle,
+                        });
+                        return (
+                          <div
+                            style={{
+                              ...wrapperStyle,
+                              display: "block",
+                              position: "relative",
+                              marginBottom: "16px",
+                              breakInside: "avoid",
+                              pageBreakInside: "avoid",
+                            }}
+                            className="photo-wrapper"
+                          >
+                            <img
+                              {...imageProps}
+                              src={photo.src}
+                              alt={photo.alt}
+                              style={{
+                                width: "100%",
+                                height: "auto",
+                                objectFit: "cover",
+                                display: "block",
+                                borderRadius: "8px",
+                              }}
+                              className="shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                              loading="lazy"
+                            />
+                          </div>
+                        );
+                      }}
+                    />
+                  </div>
+                ) : entries.length > 0 ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                      <p className="text-sm text-muted-foreground">
+                        Loading images... ({photosWithDimensions.length}/
+                        {entries.length})
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        This may take a moment for existing images
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="text-center">
+                      <p className="text-sm text-muted-foreground">
+                        No images to display
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </>

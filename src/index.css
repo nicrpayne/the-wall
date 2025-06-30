@@ -241,3 +241,71 @@
     cursor: zoom-out !important;
   }
 }
+
+/* Photo Album Container Styles - Force proper column layout */
+.photo-album-container {
+  width: 100% !important;
+  max-width: none !important;
+  display: block !important;
+  overflow: visible !important;
+}
+
+/* Override any conflicting styles from react-photo-album */
+.photo-album-container > div {
+  width: 100% !important;
+  display: flex !important;
+  gap: 16px !important;
+  align-items: flex-start !important;
+}
+
+.photo-album-container > div > div {
+  flex: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 16px !important;
+}
+
+.photo-wrapper {
+  width: 100% !important;
+  display: block !important;
+  margin-bottom: 16px !important;
+  break-inside: avoid !important;
+  page-break-inside: avoid !important;
+}
+
+.photo-wrapper img {
+  width: 100% !important;
+  height: auto !important;
+  display: block !important;
+  border-radius: 8px !important;
+}
+
+/* Force responsive behavior */
+@media (max-width: 639px) {
+  .photo-album-container > div {
+    display: flex !important;
+    gap: 12px !important;
+  }
+
+  .photo-album-container > div > div:nth-child(n + 3) {
+    display: none !important;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 1023px) {
+  .photo-album-container > div {
+    display: flex !important;
+    gap: 14px !important;
+  }
+
+  .photo-album-container > div > div:nth-child(n + 4) {
+    display: none !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  .photo-album-container > div {
+    display: flex !important;
+    gap: 16px !important;
+  }
+}
