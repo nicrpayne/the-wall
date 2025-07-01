@@ -451,7 +451,14 @@ const AdminDashboard = () => {
                       </div>
                     )}
                     <CardHeader>
-                      <CardTitle>{wall.title}</CardTitle>
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="flex-1">{wall.title}</CardTitle>
+                        {wall.is_private && (
+                          <Badge variant="secondary" className="ml-2">
+                            Private
+                          </Badge>
+                        )}
+                      </div>
                       <CardDescription>{wall.description}</CardDescription>
                     </CardHeader>
                     <CardContent>
