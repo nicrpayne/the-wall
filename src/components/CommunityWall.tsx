@@ -48,6 +48,7 @@ interface CommunityWallProps {
     title: string;
     description: string;
     isPrivate: boolean;
+    headerImageUrl?: string;
   }) => Promise<void>;
   onReorderEntries?: (reorderedEntries: JournalEntry[]) => Promise<void>;
   onDeleteEntries?: (entryIds: string[]) => Promise<void>;
@@ -56,6 +57,7 @@ interface CommunityWallProps {
     title: string;
     description: string;
     is_private: boolean;
+    header_image_url?: string;
   };
 }
 
@@ -296,6 +298,7 @@ const CommunityWall = ({
     title: string;
     description: string;
     isPrivate: boolean;
+    headerImageUrl?: string;
   }) => {
     try {
       await onUpdateWall(wallData);
@@ -447,13 +450,44 @@ const CommunityWall = ({
   }
 
   return (
-    <div className="bg-background min-h-screen p-4 md:p-8">
-      <div className="w-full max-w-none mx-auto">
-        <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold mb-2">{title}</h1>
-            <p className="text-muted-foreground">{description}</p>
+    <div className="bg-background min-h-screen">
+      {/* Header Image */}
+      {wallData?.header_image_url && (
+        <div className="w-full h-48 md:h-64 lg:h-80 relative overflow-hidden">
+          <img
+            src={wallData.header_image_url}
+            alt={`${title} header`}
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+          <div className="absolute bottom-4 left-4 right-4 md:bottom-6 md:left-6 md:right-6">
+            <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white mb-2 drop-shadow-lg">
+              {title}
+            </h1>
+            <p className="text-white/90 text-sm md:text-base drop-shadow-md max-w-2xl">
+              {description}
+            </p>
           </div>
+        </div>
+      )}
+
+      <div className="w-full max-w-none mx-auto p-4 md:p-8">
+        {/* Title and Description (only show if no header image) */}
+        {!wallData?.header_image_url && (
+          <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold mb-2">{title}</h1>
+              <p className="text-muted-foreground">{description}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Admin Controls */}
+        <div
+          className={`flex flex-col md:flex-row md:items-center justify-between ${wallData?.header_image_url ? "mb-6" : !wallData?.header_image_url ? "" : "mb-6"}`}
+        >
+          {wallData?.header_image_url && <div />}{" "}
+          {/* Spacer when header image is present */}
           <div className="flex mt-4 md:mt-0 space-x-2">
             {isAdminMode && (
               <>
@@ -886,6 +920,7 @@ const CommunityWall = ({
                     title: wallData.title,
                     description: wallData.description,
                     isPrivate: wallData.is_private,
+                    headerImageUrl: wallData.header_image_url,
                   }
                 : undefined
             }

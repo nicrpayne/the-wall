@@ -189,6 +189,7 @@ const AdminDashboard = () => {
     title: string;
     description: string;
     isPrivate: boolean;
+    headerImageUrl?: string;
   }) => {
     try {
       console.log(
@@ -206,6 +207,7 @@ const AdminDashboard = () => {
         wall_code: wallCode,
         shareable_link: "", // Temporary empty value
         is_private: wallData.isPrivate,
+        header_image_url: wallData.headerImageUrl || null,
       };
 
       console.log(
@@ -350,6 +352,7 @@ const AdminDashboard = () => {
     title: string;
     description: string;
     isPrivate: boolean;
+    headerImageUrl?: string;
   }) => {
     if (!selectedWallForEdit) return { success: false };
 
@@ -358,6 +361,7 @@ const AdminDashboard = () => {
         title: wallData.title,
         description: wallData.description,
         is_private: wallData.isPrivate,
+        header_image_url: wallData.headerImageUrl || null,
       });
 
       setWalls(
@@ -437,6 +441,15 @@ const AdminDashboard = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {walls.map((wall) => (
                   <Card key={wall.id}>
+                    {wall.header_image_url && (
+                      <div className="w-full h-32 overflow-hidden">
+                        <img
+                          src={wall.header_image_url}
+                          alt={`${wall.title} header`}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    )}
                     <CardHeader>
                       <CardTitle>{wall.title}</CardTitle>
                       <CardDescription>{wall.description}</CardDescription>
@@ -743,6 +756,7 @@ const AdminDashboard = () => {
                 title: selectedWallForEdit.title,
                 description: selectedWallForEdit.description,
                 isPrivate: selectedWallForEdit.is_private,
+                headerImageUrl: selectedWallForEdit.header_image_url,
               }}
               isEditMode={true}
             />

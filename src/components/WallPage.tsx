@@ -234,6 +234,7 @@ const WallPage = () => {
     title: string;
     description: string;
     isPrivate: boolean;
+    headerImageUrl?: string;
   }) => {
     if (!wall) return;
 
@@ -242,6 +243,7 @@ const WallPage = () => {
         title: wallData.title,
         description: wallData.description,
         is_private: wallData.isPrivate,
+        header_image_url: wallData.headerImageUrl || null,
       });
 
       setWall(updatedWall);
@@ -420,6 +422,7 @@ const WallPage = () => {
                 title: wall.title,
                 description: wall.description,
                 is_private: wall.is_private,
+                header_image_url: wall.header_image_url,
               }
             : undefined
         }

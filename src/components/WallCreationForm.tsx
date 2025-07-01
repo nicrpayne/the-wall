@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   Card,
   CardContent,
@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { AlertCircle, Copy, Link } from "lucide-react";
+import { AlertCircle, Copy, Link, Upload, X, Image } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Tooltip,
@@ -20,12 +20,14 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { submissionsApi } from "../lib/supabase";
 
 interface WallCreationFormProps {
   onSubmit?: (wallData: {
     title: string;
     description: string;
     isPrivate: boolean;
+    headerImageUrl?: string;
   }) => Promise<{
     success: boolean;
     wallId?: string;
@@ -36,6 +38,7 @@ interface WallCreationFormProps {
     title: string;
     description: string;
     isPrivate: boolean;
+    headerImageUrl?: string;
   };
   isEditMode?: boolean;
   onCancel?: () => void;
@@ -57,10 +60,15 @@ const WallCreationForm = ({
     initialData?.description || "",
   );
   const [isPrivate, setIsPrivate] = useState(initialData?.isPrivate || false);
+  const [headerImageUrl, setHeaderImageUrl] = useState(
+    initialData?.headerImageUrl || "",
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [shareableLink, setShareableLink] = useState<string | null>(null);
   const [wallCode, setWallCode] = useState<string | null>(null);
+  const [isUploadingHeader, setIsUploadingHeader] = useState(false);
+  const headerFileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,7 +76,12 @@ const WallCreationForm = ({
     setError(null);
 
     try {
-      const result = await onSubmit({ title, description, isPrivate });
+      const result = await onSubmit({
+        title,
+        description,
+        isPrivate,
+        headerImageUrl,
+      });
       if (result.success) {
         if (isEditMode) {
           // For edit mode, just close the dialog
@@ -104,14 +117,43 @@ const WallCreationForm = ({
       setTitle(initialData?.title || "");
       setDescription(initialData?.description || "");
       setIsPrivate(initialData?.isPrivate || false);
+      setHeaderImageUrl(initialData?.headerImageUrl || "");
     } else {
       setTitle("");
       setDescription("");
       setIsPrivate(false);
+      setHeaderImageUrl("");
     }
     setShareableLink(null);
     setWallCode(null);
     setError(null);
+  };
+
+  const handleHeaderImageUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingHeader(true);
+    setError(null);
+
+    try {
+      const imageUrl = await submissionsApi.uploadHeaderImage(file);
+      setHeaderImageUrl(imageUrl);
+    } catch (error) {
+      console.error("Error uploading header image:", error);
+      setError("Failed to upload header image. Please try again.");
+    } finally {
+      setIsUploadingHeader(false);
+    }
+  };
+
+  const removeHeaderImage = () => {
+    setHeaderImageUrl("");
+    if (headerFileInputRef.current) {
+      headerFileInputRef.current.value = "";
+    }
   };
 
   const handleCancel = () => {
@@ -238,6 +280,68 @@ const WallCreationForm = ({
                 onChange={(e) => setDescription(e.target.value)}
                 required
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="header-image">Header Image (Optional)</Label>
+              <div className="space-y-3">
+                {headerImageUrl ? (
+                  <div className="relative">
+                    <div className="w-full h-32 rounded-lg overflow-hidden bg-gray-100 border-2 border-dashed border-gray-300">
+                      <img
+                        src={headerImageUrl}
+                        alt="Header preview"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      className="absolute top-2 right-2"
+                      onClick={removeHeaderImage}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="w-full h-32 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center bg-gray-50 hover:bg-gray-100 transition-colors">
+                    <div className="text-center">
+                      <Image className="h-8 w-8 mx-auto text-gray-400 mb-2" />
+                      <p className="text-sm text-gray-500 mb-2">
+                        Add a header image to brand your wall
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => headerFileInputRef.current?.click()}
+                        disabled={isUploadingHeader}
+                      >
+                        {isUploadingHeader ? (
+                          "Uploading..."
+                        ) : (
+                          <>
+                            <Upload className="h-4 w-4 mr-2" />
+                            Choose Image
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                <input
+                  ref={headerFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleHeaderImageUpload}
+                  className="hidden"
+                />
+                <p className="text-xs text-gray-500">
+                  Recommended: 1200x300px or similar banner dimensions. Max
+                  10MB.
+                </p>
+              </div>
             </div>
 
             <div className="flex items-center space-x-2">

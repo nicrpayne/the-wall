@@ -18,6 +18,7 @@ export interface Wall {
   shareable_link: string;
   wall_code: string;
   is_private: boolean;
+  header_image_url?: string;
 }
 
 export interface Submission {
@@ -303,6 +304,103 @@ export const submissionsApi = {
     } catch (error) {
       console.error(
         "🔴 [submissionsApi.uploadImage] Error in uploadImage:",
+        error,
+      );
+      throw error;
+    }
+  },
+
+  async uploadHeaderImage(file: File): Promise<string> {
+    try {
+      console.log(
+        "🔵 [submissionsApi.uploadHeaderImage] Starting upload for header image:",
+        {
+          name: file.name,
+          size: file.size,
+          type: file.type,
+        },
+      );
+
+      // Validate file
+      if (!file) {
+        throw new Error("No file provided");
+      }
+
+      if (file.size > 10 * 1024 * 1024) {
+        // 10MB limit
+        throw new Error(
+          "File size too large. Please choose a file smaller than 10MB.",
+        );
+      }
+
+      const allowedTypes = [
+        "image/jpeg",
+        "image/jpg",
+        "image/png",
+        "image/webp",
+        "image/gif",
+      ];
+      if (!allowedTypes.includes(file.type)) {
+        console.error(
+          "🔴 [submissionsApi.uploadHeaderImage] Invalid file type:",
+          {
+            fileType: file.type,
+            allowedTypes,
+          },
+        );
+        throw new Error(
+          "Invalid file type. Please upload a JPEG, PNG, WebP, or GIF image.",
+        );
+      }
+
+      const fileExt = file.name.split(".").pop() || "jpg";
+      const fileName = `header-${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+      const filePath = `wall-headers/${fileName}`;
+
+      console.log(
+        "🔵 [submissionsApi.uploadHeaderImage] File validation passed, uploading:",
+        {
+          fileName,
+          filePath,
+          fileSize: file.size,
+          fileType: file.type,
+        },
+      );
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("images")
+        .upload(filePath, file, {
+          cacheControl: "3600",
+          upsert: false,
+        });
+
+      if (uploadError) {
+        console.error(
+          "🔴 [submissionsApi.uploadHeaderImage] Upload error:",
+          uploadError,
+        );
+        throw new Error(`Upload failed: ${uploadError.message}`);
+      }
+
+      console.log(
+        "🔵 [submissionsApi.uploadHeaderImage] Upload successful:",
+        uploadData,
+      );
+
+      const { data } = supabase.storage.from("images").getPublicUrl(filePath);
+
+      if (!data.publicUrl) {
+        throw new Error("Failed to get public URL for uploaded header image");
+      }
+
+      console.log(
+        "🔵 [submissionsApi.uploadHeaderImage] Public URL generated:",
+        data.publicUrl,
+      );
+      return data.publicUrl;
+    } catch (error) {
+      console.error(
+        "🔴 [submissionsApi.uploadHeaderImage] Error in uploadHeaderImage:",
         error,
       );
       throw error;

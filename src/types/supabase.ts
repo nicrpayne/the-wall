@@ -74,6 +74,7 @@ export type Database = {
         Row: {
           created_at: string | null
           description: string
+          header_image_url: string | null
           id: string
           is_private: boolean | null
           shareable_link: string
@@ -83,6 +84,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           description: string
+          header_image_url?: string | null
           id?: string
           is_private?: boolean | null
           shareable_link: string
@@ -92,6 +94,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           description?: string
+          header_image_url?: string | null
           id?: string
           is_private?: boolean | null
           shareable_link?: string
