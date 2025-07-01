@@ -34,12 +34,14 @@ import {
   CheckCircle,
   XCircle,
   Eye,
+  LogOut,
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import {
   wallsApi,
   submissionsApi,
   entriesApi,
+  authApi,
   Wall,
   Submission,
   Entry,
@@ -388,13 +390,35 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      await authApi.signOut();
+      window.location.href = "/";
+    } catch (error) {
+      console.error("Logout error:", error);
+      toast({
+        title: "Error",
+        description: "Failed to logout. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="container mx-auto p-4 bg-background">
       <header className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Admin Dashboard</h1>
-        <p className="text-muted-foreground">
-          Manage your community walls and review submissions
-        </p>
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Admin Dashboard</h1>
+            <p className="text-muted-foreground">
+              Manage your community walls and review submissions
+            </p>
+          </div>
+          <Button variant="outline" onClick={handleLogout}>
+            <LogOut className="h-4 w-4 mr-2" />
+            Logout
+          </Button>
+        </div>
       </header>
 
       <div className="flex justify-between items-center mb-6">

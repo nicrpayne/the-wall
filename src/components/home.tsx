@@ -13,27 +13,87 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Separator } from "./ui/separator";
-import { wallsApi } from "../lib/supabase";
+import { wallsApi, authApi } from "../lib/supabase";
 
 const Home = () => {
   // Default state for login form
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(false);
+  const [loginError, setLoginError] = React.useState<string | null>(null);
+  const [showSignUp, setShowSignUp] = React.useState(false);
 
   // State for wall access
   const [wallInput, setWallInput] = React.useState("");
 
   // Handle login form submission
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    // Simulate login process
-    setTimeout(() => {
-      setIsLoading(false);
-      // In a real app, this would navigate to the admin dashboard upon successful login
+    setLoginError(null);
+
+    try {
+      await authApi.signIn(email, password);
+      // Redirect to admin dashboard on successful login
       window.location.href = "/admin";
-    }, 1500);
+    } catch (error: any) {
+      console.error("Login error:", error);
+      let errorMessage = "Login failed. Please try again.";
+
+      if (error.message) {
+        if (error.message.includes("Invalid login credentials")) {
+          errorMessage =
+            "Invalid email or password. Please check your credentials.";
+        } else if (error.message.includes("Email not confirmed")) {
+          errorMessage =
+            "Please check your email and click the confirmation link before logging in.";
+        } else if (error.message.includes("Too many requests")) {
+          errorMessage =
+            "Too many login attempts. Please wait a moment and try again.";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+
+      setLoginError(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle sign up
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setLoginError(null);
+
+    try {
+      await authApi.signUp(email, password);
+      alert(
+        "Account created! Please check your email for a confirmation link before logging in.",
+      );
+      setShowSignUp(false);
+      setEmail("");
+      setPassword("");
+    } catch (error: any) {
+      console.error("Sign up error:", error);
+      let errorMessage = "Account creation failed. Please try again.";
+
+      if (error.message) {
+        if (error.message.includes("User already registered")) {
+          errorMessage =
+            "An account with this email already exists. Please try logging in instead.";
+        } else if (error.message.includes("Password should be at least")) {
+          errorMessage = "Password should be at least 6 characters long.";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+
+      setLoginError(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Handle wall access
@@ -271,36 +331,103 @@ const Home = () => {
                     <TabsTrigger value="info">Info</TabsTrigger>
                   </TabsList>
                   <TabsContent value="login">
-                    <form onSubmit={handleLogin} className="space-y-4 pt-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="email">Email</Label>
-                        <Input
-                          id="email"
-                          type="email"
-                          placeholder="admin@example.com"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          required
-                        />
+                    {loginError && (
+                      <div className="bg-destructive/10 border border-destructive/20 text-destructive px-3 py-2 rounded-md text-sm mb-4">
+                        {loginError}
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="password">Password</Label>
-                        <Input
-                          id="password"
-                          type="password"
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          required
-                        />
-                      </div>
-                      <Button
-                        type="submit"
-                        className="w-full"
-                        disabled={isLoading}
-                      >
-                        {isLoading ? "Logging in..." : "Login"}
-                      </Button>
-                    </form>
+                    )}
+
+                    {!showSignUp ? (
+                      <form onSubmit={handleLogin} className="space-y-4 pt-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="email">Email</Label>
+                          <Input
+                            id="email"
+                            type="email"
+                            placeholder="admin@example.com"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="password">Password</Label>
+                          <Input
+                            id="password"
+                            type="password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            required
+                            minLength={6}
+                          />
+                        </div>
+                        <Button
+                          type="submit"
+                          className="w-full"
+                          disabled={isLoading}
+                        >
+                          {isLoading ? "Logging in..." : "Login"}
+                        </Button>
+                        <div className="text-center">
+                          <Button
+                            type="button"
+                            variant="link"
+                            className="text-sm"
+                            onClick={() => setShowSignUp(true)}
+                          >
+                            Need to create an admin account? Sign up
+                          </Button>
+                        </div>
+                      </form>
+                    ) : (
+                      <form onSubmit={handleSignUp} className="space-y-4 pt-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="signup-email">Email</Label>
+                          <Input
+                            id="signup-email"
+                            type="email"
+                            placeholder="admin@example.com"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="signup-password">Password</Label>
+                          <Input
+                            id="signup-password"
+                            type="password"
+                            placeholder="At least 6 characters"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            required
+                            minLength={6}
+                          />
+                        </div>
+                        <Button
+                          type="submit"
+                          className="w-full"
+                          disabled={isLoading}
+                        >
+                          {isLoading
+                            ? "Creating Account..."
+                            : "Create Admin Account"}
+                        </Button>
+                        <div className="text-center">
+                          <Button
+                            type="button"
+                            variant="link"
+                            className="text-sm"
+                            onClick={() => {
+                              setShowSignUp(false);
+                              setLoginError(null);
+                            }}
+                          >
+                            Already have an account? Login
+                          </Button>
+                        </div>
+                      </form>
+                    )}
                   </TabsContent>
                   <TabsContent value="info" className="space-y-4 pt-4">
                     <div>
@@ -314,8 +441,9 @@ const Home = () => {
                     </div>
                     <Separator />
                     <p className="text-sm text-muted-foreground">
-                      Need admin access? Contact your organization administrator
-                      for credentials.
+                      {showSignUp
+                        ? "Create your admin account to manage community walls and review submissions."
+                        : "Use your admin credentials to access the dashboard."}
                     </p>
                   </TabsContent>
                 </Tabs>
