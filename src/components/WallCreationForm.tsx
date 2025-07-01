@@ -21,6 +21,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { submissionsApi } from "../lib/supabase";
+import { useToast } from "@/components/ui/use-toast";
 
 interface WallCreationFormProps {
   onSubmit?: (wallData: {
@@ -69,6 +70,7 @@ const WallCreationForm = ({
   const [wallCode, setWallCode] = useState<string | null>(null);
   const [isUploadingHeader, setIsUploadingHeader] = useState(false);
   const headerFileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -109,6 +111,10 @@ const WallCreationForm = ({
   const copyToClipboard = () => {
     if (shareableLink) {
       navigator.clipboard.writeText(shareableLink);
+      toast({
+        title: "Success",
+        description: "Shareable link copied to clipboard!",
+      });
     }
   };
 
@@ -209,9 +215,13 @@ const WallCreationForm = ({
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() =>
-                            navigator.clipboard.writeText(wallCode)
-                          }
+                          onClick={() => {
+                            navigator.clipboard.writeText(wallCode);
+                            toast({
+                              title: "Success",
+                              description: "Wall code copied to clipboard!",
+                            });
+                          }}
                         >
                           <Copy className="h-4 w-4" />
                         </Button>

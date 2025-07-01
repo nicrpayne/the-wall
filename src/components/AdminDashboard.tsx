@@ -17,6 +17,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -35,6 +45,7 @@ import {
   XCircle,
   Eye,
   LogOut,
+  AlertTriangle,
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import {
@@ -58,6 +69,7 @@ const AdminDashboard = () => {
   const [selectedWallForEdit, setSelectedWallForEdit] = useState<Wall | null>(
     null,
   );
+  const [wallToDelete, setWallToDelete] = useState<Wall | null>(null);
   const { toast } = useToast();
   const [walls, setWalls] = useState<Wall[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
@@ -284,21 +296,80 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleDeleteWall = async (id: string) => {
+  const handleDeleteWall = async (wall: Wall) => {
     try {
-      await wallsApi.delete(id);
-      setWalls(walls.filter((wall) => wall.id !== id));
+      console.log("🔴 [handleDeleteWall] Starting wall deletion:", {
+        wallId: wall.id,
+        wallTitle: wall.title,
+        wallCode: wall.wall_code,
+      });
+
+      // Check if wall has any entries or submissions
+      const entryCount = getTotalEntryCount(wall.id);
+      const pendingCount = getPendingCount(wall.id);
+
+      console.log("🔴 [handleDeleteWall] Wall content check:", {
+        entryCount,
+        pendingCount,
+        totalContent: entryCount + pendingCount,
+      });
+
+      // Call the API to delete the wall
+      console.log("🔴 [handleDeleteWall] Calling wallsApi.delete...");
+      await wallsApi.delete(wall.id);
+      console.log(
+        "🔴 [handleDeleteWall] Wall deleted from database successfully",
+      );
+
+      // Update local state
+      setWalls(walls.filter((w) => w.id !== wall.id));
+      console.log("🔴 [handleDeleteWall] Local state updated");
+
+      // Close the confirmation dialog
+      setWallToDelete(null);
+
       toast({
         title: "Success",
-        description: "Wall deleted successfully.",
+        description: `Wall "${wall.title}" deleted successfully.`,
       });
     } catch (error) {
-      console.error("Error deleting wall:", error);
+      console.error("🔴 [handleDeleteWall] Error deleting wall:", error);
+      console.error("🔴 [handleDeleteWall] Error details:", {
+        message: error?.message,
+        code: error?.code,
+        details: error?.details,
+        hint: error?.hint,
+        stack: error?.stack,
+      });
+
+      let errorMessage = "Failed to delete wall. Please try again.";
+
+      // Provide more specific error messages
+      if (error?.message) {
+        if (
+          error.message.includes("foreign key") ||
+          error.message.includes("constraint")
+        ) {
+          errorMessage =
+            "Cannot delete wall: it contains submissions or entries. Please remove all content first.";
+        } else if (error.message.includes("permission")) {
+          errorMessage =
+            "Permission denied. You don't have permission to delete this wall.";
+        } else if (error.message.includes("not found")) {
+          errorMessage = "Wall not found. It may have already been deleted.";
+        } else {
+          errorMessage = `Delete failed: ${error.message}`;
+        }
+      }
+
       toast({
         title: "Error",
-        description: "Failed to delete wall. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
+
+      // Close the confirmation dialog even on error
+      setWallToDelete(null);
     }
   };
 
@@ -552,7 +623,7 @@ const AdminDashboard = () => {
                           variant="outline"
                           size="sm"
                           className="text-destructive"
-                          onClick={() => handleDeleteWall(wall.id)}
+                          onClick={() => setWallToDelete(wall)}
                         >
                           <Trash2 className="h-4 w-4 mr-1" />
                           Delete
@@ -794,6 +865,57 @@ const AdminDashboard = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog
+        open={!!wallToDelete}
+        onOpenChange={(open) => !open && setWallToDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Delete Wall
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {wallToDelete && (
+                <div className="space-y-2">
+                  <p>
+                    Are you sure you want to delete &quot;
+                    <strong>{wallToDelete.title}</strong>&quot;?
+                  </p>
+                  <div className="bg-muted p-3 rounded-md text-sm">
+                    <p>
+                      <strong>Wall Code:</strong> {wallToDelete.wall_code}
+                    </p>
+                    <p>
+                      <strong>Total Entries:</strong>{" "}
+                      {getTotalEntryCount(wallToDelete.id)}
+                    </p>
+                    <p>
+                      <strong>Pending Submissions:</strong>{" "}
+                      {getPendingCount(wallToDelete.id)}
+                    </p>
+                  </div>
+                  <p className="text-destructive font-medium">
+                    This action cannot be undone. All associated submissions and
+                    entries will also be deleted.
+                  </p>
+                </div>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => wallToDelete && handleDeleteWall(wallToDelete)}
+            >
+              Delete Wall
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
