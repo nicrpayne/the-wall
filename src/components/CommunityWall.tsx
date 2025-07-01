@@ -22,7 +22,9 @@ import {
   GripVertical,
   Trash2,
   Check,
+  LayoutDashboard,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 import JournalUploader from "./JournalUploader";
 import WallCreationForm from "./WallCreationForm";
 import { ColumnsPhotoAlbum } from "react-photo-album";
@@ -491,6 +493,17 @@ const CommunityWall = ({
           <div className="flex mt-4 md:mt-0 space-x-2">
             {isAdminMode && (
               <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  asChild
+                  disabled={isRearrangeMode || isDeleteMode}
+                >
+                  <Link to="/admin">
+                    <LayoutDashboard className="h-4 w-4 mr-2" />
+                    Dashboard
+                  </Link>
+                </Button>
                 <Button
                   variant="outline"
                   size="sm"

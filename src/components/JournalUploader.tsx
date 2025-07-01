@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Camera, Upload, X, Check, Loader2 } from "lucide-react";
 import { Button } from "./ui/button";
 import {
@@ -40,13 +40,10 @@ const JournalUploader = ({
   const [stream, setStream] = useState<MediaStream | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    console.log("🔵 [JournalUploader] File input changed");
-    const files = Array.from(event.target.files || []);
+  const processFiles = (files: File[]) => {
+    console.log("🔵 [JournalUploader] Processing files:", files.length);
 
     if (files.length > 0) {
-      console.log("🔵 [JournalUploader] Files selected:", files.length);
-
       // Validate file types and sizes
       const allowedTypes = [
         "image/jpeg",
@@ -105,8 +102,14 @@ const JournalUploader = ({
           alert("Error reading some files. Please try again.");
         });
     } else {
-      console.log("🔴 [JournalUploader] No files selected");
+      console.log("🔴 [JournalUploader] No files provided");
     }
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log("🔵 [JournalUploader] File input changed");
+    const files = Array.from(event.target.files || []);
+    processFiles(files);
   };
 
   const startCamera = async () => {
@@ -259,7 +262,7 @@ const JournalUploader = ({
               <div className="grid grid-cols-1 gap-4">
                 <Button
                   onClick={() => startCamera()}
-                  className="h-32 flex flex-col items-center justify-center gap-2 border-2 border-dashed border-gray-300 rounded-lg"
+                  className="h-32 flex flex-col items-center justify-center gap-2 border-2 border-dashed border-gray-300 rounded-lg transition-colors"
                   variant="outline"
                 >
                   <Camera size={32} />
@@ -269,7 +272,7 @@ const JournalUploader = ({
                 <div className="relative">
                   <Button
                     onClick={() => fileInputRef.current?.click()}
-                    className="h-32 w-full flex flex-col items-center justify-center gap-2 border-2 border-dashed border-gray-300 rounded-lg"
+                    className="h-32 w-full flex flex-col items-center justify-center gap-2 border-2 border-dashed border-gray-300 rounded-lg transition-colors"
                     variant="outline"
                     disabled={isProcessingFile}
                   >
