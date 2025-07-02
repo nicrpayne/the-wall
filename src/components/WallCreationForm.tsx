@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -44,6 +44,7 @@ interface WallCreationFormProps {
   };
   isEditMode?: boolean;
   onCancel?: () => void;
+  shouldResetScroll?: boolean;
 }
 
 const WallCreationForm = ({
@@ -56,6 +57,7 @@ const WallCreationForm = ({
   initialData,
   isEditMode = false,
   onCancel,
+  shouldResetScroll = false,
 }: WallCreationFormProps) => {
   const [title, setTitle] = useState(initialData?.title || "");
   const [description, setDescription] = useState(
@@ -71,7 +73,129 @@ const WallCreationForm = ({
   const [wallCode, setWallCode] = useState<string | null>(null);
   const [isUploadingHeader, setIsUploadingHeader] = useState(false);
   const headerFileInputRef = useRef<HTMLInputElement>(null);
+  const cardContentRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  // Comprehensive scroll reset function
+  const resetScrollPosition = () => {
+    // Multiple strategies to ensure scroll reset works
+    const resetScroll = () => {
+      console.log("🔄 [WallCreationForm] Attempting scroll reset...");
+
+      // Strategy 1: Reset our CardContent ref
+      if (cardContentRef.current) {
+        console.log("📜 [WallCreationForm] Resetting CardContent scroll");
+        cardContentRef.current.scrollTop = 0;
+      }
+
+      // Strategy 2: Find and reset Dialog content scroll
+      const dialogContent = document.querySelector(
+        "[data-radix-dialog-content]",
+      );
+      if (dialogContent && dialogContent instanceof HTMLElement) {
+        console.log("📜 [WallCreationForm] Resetting Dialog content scroll");
+        dialogContent.scrollTop = 0;
+        // Also try scrolling to top using scrollTo
+        dialogContent.scrollTo({ top: 0, behavior: "instant" });
+      }
+
+      // Strategy 3: Find any scrollable containers within the dialog
+      const scrollableContainers = document.querySelectorAll(
+        '[data-radix-dialog-content] .overflow-y-auto, [data-radix-dialog-content] [style*="overflow-y: auto"], [data-scroll-container]',
+      );
+      scrollableContainers.forEach((container, index) => {
+        if (container instanceof HTMLElement) {
+          console.log(
+            `📜 [WallCreationForm] Resetting scrollable container ${index}`,
+          );
+          container.scrollTop = 0;
+          container.scrollTo({ top: 0, behavior: "instant" });
+        }
+      });
+
+      // Strategy 4: Reset scroll on the dialog overlay if it exists
+      const dialogOverlay = document.querySelector(
+        "[data-radix-dialog-overlay]",
+      );
+      if (dialogOverlay && dialogOverlay instanceof HTMLElement) {
+        console.log("📜 [WallCreationForm] Resetting Dialog overlay scroll");
+        dialogOverlay.scrollTop = 0;
+      }
+
+      // Strategy 5: Try to find the dialog viewport/content area more specifically
+      const dialogViewport = document.querySelector(
+        "[data-radix-dialog-content] > div",
+      );
+      if (dialogViewport && dialogViewport instanceof HTMLElement) {
+        console.log("📜 [WallCreationForm] Resetting Dialog viewport scroll");
+        dialogViewport.scrollTop = 0;
+        dialogViewport.scrollTo({ top: 0, behavior: "instant" });
+      }
+
+      // Strategy 6: Force scroll to top of the entire dialog area
+      const allDialogElements = document.querySelectorAll(
+        "[data-radix-dialog-content], [data-radix-dialog-content] *",
+      );
+      allDialogElements.forEach((element, index) => {
+        if (
+          element instanceof HTMLElement &&
+          element.scrollHeight > element.clientHeight
+        ) {
+          console.log(
+            `📜 [WallCreationForm] Resetting scrollable dialog element ${index}`,
+          );
+          element.scrollTop = 0;
+        }
+      });
+    };
+
+    // Execute immediately
+    resetScroll();
+
+    // Also execute after short delays to handle any DOM updates
+    setTimeout(resetScroll, 10);
+    setTimeout(resetScroll, 50);
+    setTimeout(resetScroll, 100);
+    setTimeout(resetScroll, 200);
+  };
+
+  // Reset scroll when dialog should reset (triggered by parent)
+  useEffect(() => {
+    if (shouldResetScroll) {
+      resetScrollPosition();
+    }
+  }, [shouldResetScroll]);
+
+  // Reset scroll when component mounts or when form resets
+  useEffect(() => {
+    resetScrollPosition();
+  }, [shareableLink, wallCode]); // Reset scroll when success state changes
+
+  // Reset scroll when component first mounts and on any significant state change
+  useEffect(() => {
+    resetScrollPosition();
+  }, []);
+
+  // Additional effect to handle scroll reset on any render
+  useEffect(() => {
+    // Use requestAnimationFrame to ensure DOM is fully rendered
+    const handleScrollReset = () => {
+      requestAnimationFrame(() => {
+        resetScrollPosition();
+      });
+    };
+
+    handleScrollReset();
+  });
+
+  // Reset scroll when error state changes (form validation, etc.)
+  useEffect(() => {
+    if (error) {
+      setTimeout(() => {
+        resetScrollPosition();
+      }, 50);
+    }
+  }, [error]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -134,6 +258,11 @@ const WallCreationForm = ({
     setShareableLink(null);
     setWallCode(null);
     setError(null);
+
+    // Reset scroll position when form resets
+    setTimeout(() => {
+      resetScrollPosition();
+    }, 10);
   };
 
   const handleHeaderImageUpload = async (
@@ -171,8 +300,8 @@ const WallCreationForm = ({
   };
 
   return (
-    <Card className="w-full max-w-md mx-auto bg-white max-h-[90vh] flex flex-col">
-      <CardHeader className="flex-shrink-0">
+    <Card className="w-full max-w-md mx-auto bg-white max-h-[85vh] flex flex-col">
+      <CardHeader className="flex-shrink-0 pb-4">
         <CardTitle>
           {isEditMode ? "Edit Wall Settings" : "Create New Community Wall"}
         </CardTitle>
@@ -182,7 +311,11 @@ const WallCreationForm = ({
             : "Create a new wall for users to share their journal entries."}
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex-1 overflow-y-auto space-y-4">
+      <CardContent
+        ref={cardContentRef}
+        className="flex-1 overflow-y-auto space-y-4 px-6"
+        data-scroll-container
+      >
         {error && (
           <Alert variant="destructive" className="mb-4">
             <AlertCircle className="h-4 w-4" />
@@ -367,7 +500,7 @@ const WallCreationForm = ({
       </CardContent>
 
       {!shareableLink && (
-        <CardFooter className="flex justify-end items-center gap-2 flex-shrink-0 border-t bg-white p-6">
+        <CardFooter className="flex justify-end items-center gap-2 flex-shrink-0 border-t bg-white px-6 py-3">
           <Button type="button" variant="outline" onClick={handleCancel}>
             Cancel
           </Button>

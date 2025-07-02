@@ -486,29 +486,18 @@ const CommunityWall = ({
             alt={`${title} header`}
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
-          <div className="absolute bottom-4 left-4 right-4 md:bottom-6 md:left-6 md:right-6">
-            <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white mb-2 drop-shadow-lg">
-              {title}
-            </h1>
-            <div className="text-white/90 text-sm md:text-base drop-shadow-md max-w-2xl">
-              <RichTextDisplay content={description} className="prose-invert" />
-            </div>
-          </div>
         </div>
       )}
 
       <div className="w-full max-w-none mx-auto p-4 md:p-8">
-        {/* Title and Description (only show if no header image) */}
-        {!wallData?.header_image_url && (
-          <div className="mb-6">
-            <h1 className="text-2xl md:text-3xl font-bold mb-2">{title}</h1>
-            <RichTextDisplay
-              content={description}
-              className="text-muted-foreground"
-            />
-          </div>
-        )}
+        {/* Title and Description - Always show below header image */}
+        <div className="mb-6">
+          <h1 className="text-2xl md:text-3xl font-bold mb-2">{title}</h1>
+          <RichTextDisplay
+            content={description}
+            className="text-muted-foreground"
+          />
+        </div>
 
         {/* Admin Controls - Consistent positioning regardless of header */}
         <div className="flex flex-col md:flex-row md:items-center justify-end mb-6">

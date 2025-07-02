@@ -703,7 +703,38 @@ const AdminDashboard = () => {
                 <h2 className="text-xl font-semibold">Your Community Walls</h2>
                 <Dialog
                   open={isCreateWallDialogOpen}
-                  onOpenChange={setIsCreateWallDialogOpen}
+                  onOpenChange={(open) => {
+                    setIsCreateWallDialogOpen(open);
+                    // Reset scroll when dialog opens
+                    if (open) {
+                      setTimeout(() => {
+                        // Target multiple potential scroll containers
+                        const dialogContent = document.querySelector(
+                          "[data-radix-dialog-content]",
+                        );
+                        const cardContent = document.querySelector(
+                          "[data-scroll-container]",
+                        );
+
+                        if (dialogContent) {
+                          dialogContent.scrollTop = 0;
+                        }
+                        if (cardContent) {
+                          cardContent.scrollTop = 0;
+                        }
+
+                        // Also try to find any scrollable elements within the dialog
+                        const scrollableElements = document.querySelectorAll(
+                          '[data-radix-dialog-content] [style*="overflow-y: auto"], [data-radix-dialog-content] .overflow-y-auto',
+                        );
+                        scrollableElements.forEach((el) => {
+                          if (el instanceof HTMLElement) {
+                            el.scrollTop = 0;
+                          }
+                        });
+                      }, 50);
+                    }
+                  }}
                 >
                   <DialogTrigger asChild>
                     <Button>
@@ -719,7 +750,10 @@ const AdminDashboard = () => {
                         wall for journal submissions.
                       </DialogDescription>
                     </DialogHeader>
-                    <WallCreationForm onSubmit={handleCreateWall} />
+                    <WallCreationForm
+                      onSubmit={handleCreateWall}
+                      shouldResetScroll={isCreateWallDialogOpen}
+                    />
                   </DialogContent>
                 </Dialog>
               </div>
