@@ -33,6 +33,16 @@ const RichTextEditor = ({
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
+        paragraph: {
+          HTMLAttributes: {
+            class: "paragraph",
+          },
+        },
+        hardBreak: {
+          HTMLAttributes: {
+            class: "hard-break",
+          },
+        },
         heading: {
           levels: [1, 2, 3],
           HTMLAttributes: {
@@ -67,7 +77,15 @@ const RichTextEditor = ({
     ],
     content,
     onUpdate: ({ editor }) => {
-      onChange(editor.getHTML());
+      // Convert the HTML to preserve line breaks more consistently
+      const html = editor.getHTML();
+      // Replace empty paragraphs with line breaks for better consistency
+      const processedHtml = html
+        .replace(/<p><\/p>/g, "<br>")
+        .replace(/<p>\s*<\/p>/g, "<br>")
+        .replace(/<p class="paragraph"><\/p>/g, "<br>")
+        .replace(/<p class="paragraph">\s*<\/p>/g, "<br>");
+      onChange(processedHtml);
     },
     editorProps: {
       attributes: {
@@ -77,7 +95,7 @@ const RichTextEditor = ({
           "prose-h1:text-2xl prose-h1:font-bold prose-h1:mb-4 prose-h1:mt-6 prose-h1:leading-tight",
           "prose-h2:text-xl prose-h2:font-bold prose-h2:mb-3 prose-h2:mt-5 prose-h2:leading-tight",
           "prose-h3:text-lg prose-h3:font-bold prose-h3:mb-2 prose-h3:mt-4 prose-h3:leading-tight",
-          "prose-p:text-foreground prose-p:leading-relaxed prose-p:mb-3",
+          "prose-p:text-foreground prose-p:leading-relaxed prose-p:mb-3 prose-p:last:mb-0",
           "prose-strong:font-bold prose-strong:text-foreground",
           "prose-em:italic prose-em:text-foreground",
           "prose-blockquote:border-l-4 prose-blockquote:border-primary prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:text-muted-foreground prose-blockquote:my-4",
@@ -87,8 +105,40 @@ const RichTextEditor = ({
           "[&_h2]:text-xl [&_h2]:font-bold [&_h2]:mb-3 [&_h2]:mt-5 [&_h2]:text-foreground",
           "[&_h3]:text-lg [&_h3]:font-bold [&_h3]:mb-2 [&_h3]:mt-4 [&_h3]:text-foreground",
           "[&_blockquote]:border-l-4 [&_blockquote]:border-primary [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-muted-foreground [&_blockquote]:my-4",
+          "[&_br]:block [&_br]:my-2",
           className,
         ),
+      },
+      handleKeyDown: (view, event) => {
+        // Handle Enter key to create consistent line breaks
+        if (event.key === "Enter" && !event.shiftKey) {
+          // Check if we're in a list or other special context
+          const { state } = view;
+          const { selection } = state;
+          const { $from } = selection;
+
+          // If we're in a list item, let the default behavior handle it
+          if ($from.parent.type.name === "listItem") {
+            return false;
+          }
+
+          // If we're in a heading or blockquote, let default behavior handle it
+          if (
+            $from.parent.type.name === "heading" ||
+            $from.parent.type.name === "blockquote"
+          ) {
+            return false;
+          }
+
+          // For regular paragraphs, create a hard break instead of a new paragraph
+          // This helps maintain consistent spacing
+          const tr = state.tr.replaceSelectionWith(
+            state.schema.nodes.hardBreak.create(),
+          );
+          view.dispatch(tr);
+          return true;
+        }
+        return false;
       },
     },
     immediatelyRender: false,
