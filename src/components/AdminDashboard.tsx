@@ -28,6 +28,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
   TableBody,
@@ -46,6 +47,7 @@ import {
   Eye,
   LogOut,
   AlertTriangle,
+  Loader2,
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import {
@@ -77,6 +79,12 @@ const AdminDashboard = () => {
   const [allEntries, setAllEntries] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(true);
   const [previousSubmissionCount, setPreviousSubmissionCount] = useState(0);
+
+  // Bulk selection state
+  const [selectedSubmissionIds, setSelectedSubmissionIds] = useState<
+    Set<string>
+  >(new Set());
+  const [isBulkProcessing, setIsBulkProcessing] = useState(false);
 
   // Load data on component mount
   useEffect(() => {
@@ -446,6 +454,163 @@ const AdminDashboard = () => {
     }
   };
 
+  // Bulk selection functions
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedSubmissionIds(new Set(pendingSubmissions.map((s) => s.id)));
+    } else {
+      setSelectedSubmissionIds(new Set());
+    }
+  };
+
+  const handleSelectSubmission = (submissionId: string, checked: boolean) => {
+    const newSelected = new Set(selectedSubmissionIds);
+    if (checked) {
+      newSelected.add(submissionId);
+    } else {
+      newSelected.delete(submissionId);
+    }
+    setSelectedSubmissionIds(newSelected);
+  };
+
+  // Bulk approval function
+  const handleBulkApprove = async () => {
+    if (selectedSubmissionIds.size === 0) return;
+
+    setIsBulkProcessing(true);
+    const selectedIds = Array.from(selectedSubmissionIds);
+
+    try {
+      // Process all approvals in parallel
+      const approvalPromises = selectedIds.map(async (id) => {
+        try {
+          await submissionsApi.updateStatus(id, "approved");
+          return { id, success: true };
+        } catch (error) {
+          console.error(`Error approving submission ${id}:`, error);
+          return { id, success: false, error };
+        }
+      });
+
+      const results = await Promise.all(approvalPromises);
+      const successful = results.filter((r) => r.success);
+      const failed = results.filter((r) => !r.success);
+
+      // Update local state for successful approvals
+      if (successful.length > 0) {
+        const successfulIds = successful.map((r) => r.id);
+        setSubmissions((prevSubmissions) =>
+          prevSubmissions.map((submission) =>
+            successfulIds.includes(submission.id)
+              ? { ...submission, status: "approved" as const }
+              : submission,
+          ),
+        );
+      }
+
+      // Clear selections
+      setSelectedSubmissionIds(new Set());
+
+      // Show appropriate toast
+      if (failed.length === 0) {
+        toast({
+          title: "Success",
+          description: `${successful.length} submission${successful.length === 1 ? "" : "s"} approved successfully.`,
+        });
+      } else if (successful.length > 0) {
+        toast({
+          title: "Partial Success",
+          description: `${successful.length} approved, ${failed.length} failed. Please try again for the failed ones.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to approve submissions. Please try again.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error in bulk approval:", error);
+      toast({
+        title: "Error",
+        description: "Failed to approve submissions. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsBulkProcessing(false);
+    }
+  };
+
+  // Bulk rejection function
+  const handleBulkReject = async () => {
+    if (selectedSubmissionIds.size === 0) return;
+
+    setIsBulkProcessing(true);
+    const selectedIds = Array.from(selectedSubmissionIds);
+
+    try {
+      // Process all rejections in parallel
+      const rejectionPromises = selectedIds.map(async (id) => {
+        try {
+          await submissionsApi.updateStatus(id, "rejected");
+          return { id, success: true };
+        } catch (error) {
+          console.error(`Error rejecting submission ${id}:`, error);
+          return { id, success: false, error };
+        }
+      });
+
+      const results = await Promise.all(rejectionPromises);
+      const successful = results.filter((r) => r.success);
+      const failed = results.filter((r) => !r.success);
+
+      // Update local state for successful rejections
+      if (successful.length > 0) {
+        const successfulIds = successful.map((r) => r.id);
+        setSubmissions((prevSubmissions) =>
+          prevSubmissions.map((submission) =>
+            successfulIds.includes(submission.id)
+              ? { ...submission, status: "rejected" as const }
+              : submission,
+          ),
+        );
+      }
+
+      // Clear selections
+      setSelectedSubmissionIds(new Set());
+
+      // Show appropriate toast
+      if (failed.length === 0) {
+        toast({
+          title: "Success",
+          description: `${successful.length} submission${successful.length === 1 ? "" : "s"} rejected.`,
+        });
+      } else if (successful.length > 0) {
+        toast({
+          title: "Partial Success",
+          description: `${successful.length} rejected, ${failed.length} failed. Please try again for the failed ones.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to reject submissions. Please try again.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error in bulk rejection:", error);
+      toast({
+        title: "Error",
+        description: "Failed to reject submissions. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsBulkProcessing(false);
+    }
+  };
+
   const handleEditWall = async (wallData: {
     title: string;
     description: string;
@@ -707,15 +872,65 @@ const AdminDashboard = () => {
             </TabsContent>
 
             <TabsContent value="submissions">
-              <h2 className="text-xl font-semibold mb-4">
-                Pending Submissions
-              </h2>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold">Pending Submissions</h2>
+                {pendingSubmissions.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">
+                      {selectedSubmissionIds.size} of{" "}
+                      {pendingSubmissions.length} selected
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleBulkApprove()}
+                      disabled={
+                        selectedSubmissionIds.size === 0 || isBulkProcessing
+                      }
+                    >
+                      {isBulkProcessing ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                      )}
+                      Approve Selected ({selectedSubmissionIds.size})
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleBulkReject()}
+                      disabled={
+                        selectedSubmissionIds.size === 0 || isBulkProcessing
+                      }
+                      className="text-destructive"
+                    >
+                      {isBulkProcessing ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <XCircle className="h-4 w-4 mr-2" />
+                      )}
+                      Reject Selected ({selectedSubmissionIds.size})
+                    </Button>
+                  </div>
+                )}
+              </div>
 
               {pendingSubmissions.length > 0 ? (
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="w-12">
+                          <Checkbox
+                            checked={
+                              selectedSubmissionIds.size ===
+                                pendingSubmissions.length &&
+                              pendingSubmissions.length > 0
+                            }
+                            onCheckedChange={handleSelectAll}
+                            aria-label="Select all submissions"
+                          />
+                        </TableHead>
                         <TableHead>Preview</TableHead>
                         <TableHead>Wall</TableHead>
                         <TableHead>Submitted</TableHead>
@@ -725,6 +940,18 @@ const AdminDashboard = () => {
                     <TableBody>
                       {pendingSubmissions.map((submission) => (
                         <TableRow key={submission.id}>
+                          <TableCell>
+                            <Checkbox
+                              checked={selectedSubmissionIds.has(submission.id)}
+                              onCheckedChange={(checked) =>
+                                handleSelectSubmission(
+                                  submission.id,
+                                  checked as boolean,
+                                )
+                              }
+                              aria-label={`Select submission from ${submission.wall_title}`}
+                            />
+                          </TableCell>
                           <TableCell>
                             <div
                               className="w-16 h-16 relative overflow-hidden rounded-md cursor-pointer hover:opacity-80 transition-opacity"
@@ -765,6 +992,7 @@ const AdminDashboard = () => {
                                 onClick={() =>
                                   handleApproveSubmission(submission.id)
                                 }
+                                disabled={isBulkProcessing}
                               >
                                 <CheckCircle className="h-4 w-4 mr-1" />
                                 Approve
@@ -776,6 +1004,7 @@ const AdminDashboard = () => {
                                 onClick={() =>
                                   handleRejectSubmission(submission.id)
                                 }
+                                disabled={isBulkProcessing}
                               >
                                 <XCircle className="h-4 w-4 mr-1" />
                                 Reject

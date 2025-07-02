@@ -225,7 +225,115 @@ export const submissionsApi = {
         name: file.name,
         size: file.size,
         type: file.type,
+        lastModified: file.lastModified,
       });
+
+      // Log Supabase client configuration (without exposing sensitive data)
+      console.log("🔵 [submissionsApi.uploadImage] Supabase client config:", {
+        supabaseUrl: supabaseUrl
+          ? `${supabaseUrl.substring(0, 20)}...`
+          : "NOT_SET",
+        anonKeyPresent: !!supabaseAnonKey,
+        anonKeyLength: supabaseAnonKey ? supabaseAnonKey.length : 0,
+        clientInitialized: !!supabase,
+      });
+
+      // Test Supabase connection first
+      console.log(
+        "🔵 [submissionsApi.uploadImage] Testing Supabase connection...",
+      );
+
+      let buckets;
+      let bucketsError;
+
+      try {
+        console.log(
+          "🔵 [submissionsApi.uploadImage] Calling supabase.storage.listBuckets()...",
+        );
+        const bucketResponse = await supabase.storage.listBuckets();
+        buckets = bucketResponse.data;
+        bucketsError = bucketResponse.error;
+
+        console.log("🔵 [submissionsApi.uploadImage] Raw bucket response:", {
+          data: buckets,
+          error: bucketsError,
+          dataType: typeof buckets,
+          isArray: Array.isArray(buckets),
+          length: buckets ? buckets.length : "N/A",
+        });
+
+        if (bucketsError) {
+          console.error(
+            "🔴 [submissionsApi.uploadImage] Bucket list error details:",
+            {
+              message: bucketsError.message,
+              statusCode: bucketsError.statusCode,
+              error: bucketsError.error,
+              details: bucketsError.details,
+              hint: bucketsError.hint,
+              code: bucketsError.code,
+            },
+          );
+          throw new Error(`Storage connection failed: ${bucketsError.message}`);
+        }
+
+        if (!buckets) {
+          console.error(
+            "🔴 [submissionsApi.uploadImage] Buckets data is null/undefined",
+          );
+          throw new Error("Storage connection failed: No bucket data returned");
+        }
+
+        if (!Array.isArray(buckets)) {
+          console.error(
+            "🔴 [submissionsApi.uploadImage] Buckets data is not an array:",
+            typeof buckets,
+          );
+          throw new Error(
+            "Storage connection failed: Invalid bucket data format",
+          );
+        }
+
+        console.log(
+          "🔵 [submissionsApi.uploadImage] Available buckets:",
+          buckets.map((b) => ({ name: b.name, id: b.id, public: b.public })),
+        );
+
+        const imagesBucket = buckets.find((b) => b.name === "images");
+        if (!imagesBucket) {
+          console.error(
+            "🔴 [submissionsApi.uploadImage] Images bucket not found in list:",
+            {
+              availableBuckets: buckets.map((b) => b.name),
+              totalBuckets: buckets.length,
+              searchingFor: "images",
+            },
+          );
+          throw new Error(
+            `Images storage bucket not found. Available buckets: ${buckets.map((b) => b.name).join(", ")}. Please check your Supabase storage configuration.`,
+          );
+        }
+
+        console.log("🔵 [submissionsApi.uploadImage] Found images bucket:", {
+          name: imagesBucket.name,
+          id: imagesBucket.id,
+          public: imagesBucket.public,
+          createdAt: imagesBucket.created_at,
+          updatedAt: imagesBucket.updated_at,
+        });
+      } catch (connectionError) {
+        console.error(
+          "🔴 [submissionsApi.uploadImage] Connection test failed:",
+          {
+            error: connectionError,
+            message: connectionError?.message,
+            name: connectionError?.name,
+            stack: connectionError?.stack,
+            cause: connectionError?.cause,
+          },
+        );
+        throw connectionError;
+      }
 
       // Validate file
       if (!file) {
@@ -282,7 +390,33 @@ export const submissionsApi = {
           "🔴 [submissionsApi.uploadImage] Upload error:",
           uploadError,
         );
-        throw new Error(`Upload failed: ${uploadError.message}`);
+        console.error("🔴 [submissionsApi.uploadImage] Upload error details:", {
+          message: uploadError.message,
+          statusCode: uploadError.statusCode,
+          error: uploadError.error,
+          details: uploadError.details,
+        });
+
+        let errorMessage = "Upload failed";
+        if (uploadError.statusCode === 413) {
+          errorMessage = "File size too large. Please choose a smaller file";
+        } else if (uploadError.statusCode === 415) {
+          errorMessage =
+            "File type not supported. Please choose a JPEG, PNG, WebP, or GIF image";
+        } else if (uploadError.statusCode === 401) {
+          errorMessage =
+            "Authentication failed. Please refresh the page and try again";
+        } else if (uploadError.statusCode === 403) {
+          errorMessage =
+            "Permission denied. Storage access not configured properly";
+        } else if (uploadError.message?.includes("network")) {
+          errorMessage =
+            "Network error. Please check your connection and try again";
+        } else if (uploadError.message) {
+          errorMessage = `Upload failed: ${uploadError.message}`;
+        }
+
+        throw new Error(errorMessage);
       }
 
       console.log(

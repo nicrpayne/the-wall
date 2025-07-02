@@ -101,8 +101,25 @@ const JournalUploader = ({
         })
         .catch((error) => {
           console.error("🔴 [JournalUploader] Error reading files:", error);
+          console.error("🔴 [JournalUploader] Error details:", {
+            message: error?.message,
+            name: error?.name,
+            stack: error?.stack,
+          });
           setIsProcessingFile(false);
-          alert("Error reading some files. Please try again.");
+
+          let errorMessage = "Error reading some files. ";
+          if (error?.name === "NotReadableError") {
+            errorMessage +=
+              "The files may be corrupted or in an unsupported format. ";
+          } else if (error?.message?.includes("network")) {
+            errorMessage += "Network error occurred. ";
+          } else if (error?.message) {
+            errorMessage += `Details: ${error.message}. `;
+          }
+          errorMessage += "Please try selecting different files or try again.";
+
+          alert(errorMessage);
         });
     } else {
       console.log("🔴 [JournalUploader] No files provided");
@@ -156,7 +173,42 @@ const JournalUploader = ({
         setUploadProgress(0);
       } catch (error) {
         console.error("🔴 [JournalUploader] Error submitting files:", error);
-        alert("Error uploading your journal entries. Please try again.");
+        console.error("🔴 [JournalUploader] Error details:", {
+          message: error?.message,
+          name: error?.name,
+          stack: error?.stack,
+          cause: error?.cause,
+        });
+
+        let errorMessage = "Failed to submit your entry. ";
+        if (error?.message) {
+          if (
+            error.message.includes("storage") ||
+            error.message.includes("upload")
+          ) {
+            errorMessage += "Error: Upload failed. ";
+          } else if (
+            error.message.includes("network") ||
+            error.message.includes("fetch")
+          ) {
+            errorMessage += "Error: Network connection issue. ";
+          } else if (error.message.includes("size")) {
+            errorMessage += "Error: File too large. ";
+          } else if (
+            error.message.includes("type") ||
+            error.message.includes("format")
+          ) {
+            errorMessage += "Error: Invalid file format. ";
+          } else {
+            errorMessage += `Error: ${error.message}. `;
+          }
+        } else {
+          errorMessage += "Error: Unknown upload error. ";
+        }
+        errorMessage +=
+          "Please try again or contact support if the problem persists.";
+
+        alert(errorMessage);
         setUploadProgress(0);
       }
     } else {

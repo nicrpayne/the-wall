@@ -324,21 +324,55 @@ const WallPage = () => {
         );
       }
     } catch (error) {
-      console.error("Error submitting entry:", error);
+      console.error("🔴 [WallPage] Error submitting entry:", error);
+      console.error("🔴 [WallPage] Error details:", {
+        message: error?.message,
+        name: error?.name,
+        stack: error?.stack,
+        cause: error?.cause,
+      });
 
       // Provide more detailed error messages
       let errorMessage = "Failed to submit your entry. ";
       if (error instanceof Error) {
-        if (error.message.includes("storage")) {
-          errorMessage += "There was an issue uploading your image. ";
+        if (
+          error.message.includes("Upload failed") ||
+          error.message.includes("storage")
+        ) {
+          errorMessage += `Upload error: ${error.message}. `;
+        } else if (error.message.includes("File size too large")) {
+          errorMessage +=
+            "Error: File too large. Please choose smaller images (under 10MB each). ";
+        } else if (
+          error.message.includes("File type not supported") ||
+          error.message.includes("Invalid file type")
+        ) {
+          errorMessage +=
+            "Error: Invalid file format. Please use JPEG, PNG, WebP, or GIF images only. ";
+        } else if (
+          error.message.includes("Authentication failed") ||
+          error.message.includes("Permission denied")
+        ) {
+          errorMessage +=
+            "Error: Authentication issue. Please refresh the page and try again. ";
+        } else if (
+          error.message.includes("network") ||
+          error.message.includes("Network")
+        ) {
+          errorMessage +=
+            "Error: Network connection issue. Please check your internet connection. ";
         } else if (
           error.message.includes("database") ||
-          error.message.includes("insert")
+          error.message.includes("insert") ||
+          error.message.includes("submission")
         ) {
-          errorMessage += "There was an issue saving your submission. ";
+          errorMessage +=
+            "Error: Database issue. There was a problem saving your submission. ";
         } else {
           errorMessage += `Error: ${error.message}. `;
         }
+      } else {
+        errorMessage += "Error: Unknown error occurred. ";
       }
       errorMessage +=
         "Please try again or contact support if the problem persists.";
