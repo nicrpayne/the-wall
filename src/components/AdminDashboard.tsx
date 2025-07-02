@@ -753,6 +753,7 @@ const AdminDashboard = () => {
                     <WallCreationForm
                       onSubmit={handleCreateWall}
                       shouldResetScroll={isCreateWallDialogOpen}
+                      onCancel={() => setIsCreateWallDialogOpen(false)}
                     />
                   </DialogContent>
                 </Dialog>
@@ -1155,6 +1156,7 @@ const AdminDashboard = () => {
                 headerImageUrl: selectedWallForEdit.header_image_url,
               }}
               isEditMode={true}
+              onCancel={() => setSelectedWallForEdit(null)}
             />
           )}
         </DialogContent>

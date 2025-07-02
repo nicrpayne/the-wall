@@ -76,87 +76,19 @@ const WallCreationForm = ({
   const cardContentRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
-  // Comprehensive scroll reset function
+  // Simplified scroll reset function
   const resetScrollPosition = () => {
-    // Multiple strategies to ensure scroll reset works
-    const resetScroll = () => {
-      console.log("🔄 [WallCreationForm] Attempting scroll reset...");
+    // Reset our CardContent ref
+    if (cardContentRef.current) {
+      cardContentRef.current.scrollTop = 0;
+    }
 
-      // Strategy 1: Reset our CardContent ref
-      if (cardContentRef.current) {
-        console.log("📜 [WallCreationForm] Resetting CardContent scroll");
-        cardContentRef.current.scrollTop = 0;
-      }
-
-      // Strategy 2: Find and reset Dialog content scroll
-      const dialogContent = document.querySelector(
-        "[data-radix-dialog-content]",
-      );
-      if (dialogContent && dialogContent instanceof HTMLElement) {
-        console.log("📜 [WallCreationForm] Resetting Dialog content scroll");
-        dialogContent.scrollTop = 0;
-        // Also try scrolling to top using scrollTo
-        dialogContent.scrollTo({ top: 0, behavior: "instant" });
-      }
-
-      // Strategy 3: Find any scrollable containers within the dialog
-      const scrollableContainers = document.querySelectorAll(
-        '[data-radix-dialog-content] .overflow-y-auto, [data-radix-dialog-content] [style*="overflow-y: auto"], [data-scroll-container]',
-      );
-      scrollableContainers.forEach((container, index) => {
-        if (container instanceof HTMLElement) {
-          console.log(
-            `📜 [WallCreationForm] Resetting scrollable container ${index}`,
-          );
-          container.scrollTop = 0;
-          container.scrollTo({ top: 0, behavior: "instant" });
-        }
-      });
-
-      // Strategy 4: Reset scroll on the dialog overlay if it exists
-      const dialogOverlay = document.querySelector(
-        "[data-radix-dialog-overlay]",
-      );
-      if (dialogOverlay && dialogOverlay instanceof HTMLElement) {
-        console.log("📜 [WallCreationForm] Resetting Dialog overlay scroll");
-        dialogOverlay.scrollTop = 0;
-      }
-
-      // Strategy 5: Try to find the dialog viewport/content area more specifically
-      const dialogViewport = document.querySelector(
-        "[data-radix-dialog-content] > div",
-      );
-      if (dialogViewport && dialogViewport instanceof HTMLElement) {
-        console.log("📜 [WallCreationForm] Resetting Dialog viewport scroll");
-        dialogViewport.scrollTop = 0;
-        dialogViewport.scrollTo({ top: 0, behavior: "instant" });
-      }
-
-      // Strategy 6: Force scroll to top of the entire dialog area
-      const allDialogElements = document.querySelectorAll(
-        "[data-radix-dialog-content], [data-radix-dialog-content] *",
-      );
-      allDialogElements.forEach((element, index) => {
-        if (
-          element instanceof HTMLElement &&
-          element.scrollHeight > element.clientHeight
-        ) {
-          console.log(
-            `📜 [WallCreationForm] Resetting scrollable dialog element ${index}`,
-          );
-          element.scrollTop = 0;
-        }
-      });
-    };
-
-    // Execute immediately
-    resetScroll();
-
-    // Also execute after short delays to handle any DOM updates
-    setTimeout(resetScroll, 10);
-    setTimeout(resetScroll, 50);
-    setTimeout(resetScroll, 100);
-    setTimeout(resetScroll, 200);
+    // Reset Dialog content scroll
+    const dialogContent = document.querySelector("[data-radix-dialog-content]");
+    if (dialogContent && dialogContent instanceof HTMLElement) {
+      dialogContent.scrollTop = 0;
+      dialogContent.scrollTo({ top: 0, behavior: "instant" });
+    }
   };
 
   // Reset scroll when dialog should reset (triggered by parent)
@@ -166,36 +98,10 @@ const WallCreationForm = ({
     }
   }, [shouldResetScroll]);
 
-  // Reset scroll when component mounts or when form resets
-  useEffect(() => {
-    resetScrollPosition();
-  }, [shareableLink, wallCode]); // Reset scroll when success state changes
-
-  // Reset scroll when component first mounts and on any significant state change
+  // Reset scroll when component mounts
   useEffect(() => {
     resetScrollPosition();
   }, []);
-
-  // Additional effect to handle scroll reset on any render
-  useEffect(() => {
-    // Use requestAnimationFrame to ensure DOM is fully rendered
-    const handleScrollReset = () => {
-      requestAnimationFrame(() => {
-        resetScrollPosition();
-      });
-    };
-
-    handleScrollReset();
-  });
-
-  // Reset scroll when error state changes (form validation, etc.)
-  useEffect(() => {
-    if (error) {
-      setTimeout(() => {
-        resetScrollPosition();
-      }, 50);
-    }
-  }, [error]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -258,11 +164,6 @@ const WallCreationForm = ({
     setShareableLink(null);
     setWallCode(null);
     setError(null);
-
-    // Reset scroll position when form resets
-    setTimeout(() => {
-      resetScrollPosition();
-    }, 10);
   };
 
   const handleHeaderImageUpload = async (
@@ -293,9 +194,13 @@ const WallCreationForm = ({
   };
 
   const handleCancel = () => {
+    console.log("🔵 [WallCreationForm] Cancel button clicked!");
     resetForm();
     if (onCancel) {
+      console.log("🔵 [WallCreationForm] Calling onCancel function");
       onCancel();
+    } else {
+      console.log("🔵 [WallCreationForm] No onCancel function provided");
     }
   };
 
@@ -504,7 +409,15 @@ const WallCreationForm = ({
           <Button type="button" variant="outline" onClick={handleCancel}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting}>
+          <Button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleSubmit(e);
+            }}
+            disabled={isSubmitting}
+          >
             {isSubmitting
               ? isEditMode
                 ? "Updating..."
