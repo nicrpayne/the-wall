@@ -14,12 +14,14 @@ interface JournalUploaderProps {
   onSubmit: (files: File | File[]) => Promise<void>;
   isSubmitting?: boolean;
   wallTitle?: string;
+  isAdditionalSubmission?: boolean;
 }
 
 const JournalUploader = ({
   onSubmit,
   isSubmitting = false,
   wallTitle = "Community Wall",
+  isAdditionalSubmission = false,
 }: JournalUploaderProps) => {
   const [capturedImages, setCapturedImages] = useState<string[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -32,6 +34,9 @@ const JournalUploader = ({
     console.log("🔵 [JournalUploader] Processing files:", files.length);
 
     if (files.length > 0) {
+      // Set processing state immediately when we start processing
+      setIsProcessingFile(true);
+
       // Validate file types and sizes
       const allowedTypes = [
         "image/jpeg",
@@ -61,11 +66,16 @@ const JournalUploader = ({
       }
 
       if (validFiles.length === 0) {
+        console.log("🔵 [JournalUploader] No valid files to process");
+        setIsProcessingFile(false);
         return;
       }
 
-      setSelectedFiles(validFiles);
-      setIsProcessingFile(true);
+      console.log(
+        "🔵 [JournalUploader] Processing",
+        validFiles.length,
+        "valid files",
+      );
 
       // Process all files
       const imagePromises = validFiles.map((file) => {
@@ -80,9 +90,14 @@ const JournalUploader = ({
       Promise.all(imagePromises)
         .then((images) => {
           console.log("🔵 [JournalUploader] All files processed successfully");
+
+          setSelectedFiles(validFiles);
           setCapturedImages(images);
           setShowPreview(true);
           setIsProcessingFile(false);
+          console.log(
+            "🔵 [JournalUploader] Processing complete, isProcessingFile set to false",
+          );
         })
         .catch((error) => {
           console.error("🔴 [JournalUploader] Error reading files:", error);
@@ -91,12 +106,27 @@ const JournalUploader = ({
         });
     } else {
       console.log("🔴 [JournalUploader] No files provided");
+      // Ensure processing state is false when no files
+      setIsProcessingFile(false);
     }
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     console.log("🔵 [JournalUploader] File input changed");
     const files = Array.from(event.target.files || []);
+
+    // Clear the input value immediately to allow reselection
+    if (event.target) {
+      event.target.value = "";
+    }
+
+    // If no files selected (user cancelled), reset processing state and don't process
+    if (files.length === 0) {
+      console.log("🔵 [JournalUploader] No files selected (user cancelled)");
+      setIsProcessingFile(false);
+      return;
+    }
+
     processFiles(files);
   };
 
@@ -161,11 +191,14 @@ const JournalUploader = ({
       <Card className="w-full">
         <CardHeader>
           <CardTitle className="text-xl text-center">
-            Share Your Journal Entry
+            {isAdditionalSubmission
+              ? "Submit Another Entry"
+              : "Share Your Journal Entry"}
           </CardTitle>
           <CardDescription className="text-center">
-            Upload a photo of your handwritten journal page to join the{" "}
-            {wallTitle}
+            {isAdditionalSubmission
+              ? `Submit an additional journal entry to the ${wallTitle}. This will be reviewed before being added to the wall.`
+              : `Upload a photo of your handwritten journal page to join the ${wallTitle}`}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -236,17 +269,6 @@ const JournalUploader = ({
                   </div>
                 ))}
               </div>
-
-              {/* Add more images button */}
-              <Button
-                variant="outline"
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full"
-                disabled={isProcessingFile}
-              >
-                <Upload size={16} className="mr-2" />
-                Add More Images
-              </Button>
             </div>
           )}
         </CardContent>

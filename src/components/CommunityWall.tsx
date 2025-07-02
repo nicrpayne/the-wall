@@ -81,6 +81,7 @@ const CommunityWall = ({
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(-1);
   const [isMobile, setIsMobile] = useState(false);
+  const [isAdditionalSubmission, setIsAdditionalSubmission] = useState(false);
 
   // Admin functionality states
   const [showSettings, setShowSettings] = useState(false);
@@ -263,11 +264,17 @@ const CommunityWall = ({
         setHasSubmitted(true);
       }
       setShowUploader(false);
+      setIsAdditionalSubmission(false);
     } catch (error) {
       console.error("Error submitting entry:", error);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleSubmitAdditionalEntry = () => {
+    setIsAdditionalSubmission(true);
+    setShowUploader(true);
   };
 
   const handleShareWall = () => {
@@ -422,8 +429,14 @@ const CommunityWall = ({
               <h1 className="text-2xl md:text-3xl font-bold mb-2">{title}</h1>
               <p className="text-muted-foreground">{description}</p>
             </div>
-            {isAdminMode && (
-              <Button variant="outline" onClick={() => setShowUploader(false)}>
+            {(isAdminMode || isAdditionalSubmission) && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowUploader(false);
+                  setIsAdditionalSubmission(false);
+                }}
+              >
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to Wall
               </Button>
@@ -433,16 +446,24 @@ const CommunityWall = ({
           <Card className="mb-6">
             <CardContent className="p-6">
               <h2 className="text-xl font-semibold mb-4">
-                {isAdminMode ? "Add New Entry" : "Share Your Journal Entry"}
+                {isAdminMode
+                  ? "Add New Entry"
+                  : isAdditionalSubmission
+                    ? "Submit Additional Entry"
+                    : "Share Your Journal Entry"}
               </h2>
               <p className="text-muted-foreground mb-6">
                 {isAdminMode
                   ? "Upload journal entries directly to this wall. Your entries will be added immediately without requiring approval."
-                  : "To view the community wall, please share your own journal entry first. Your submission will be reviewed by a moderator before being added to the wall."}
+                  : isAdditionalSubmission
+                    ? "Submit another journal entry to this community wall. Your additional submission will be reviewed by a moderator before being added to the wall."
+                    : "To view the community wall, please share your own journal entry first. Your submission will be reviewed by a moderator before being added to the wall."}
               </p>
               <JournalUploader
                 onSubmit={handleSubmit}
                 isSubmitting={isLoading}
+                wallTitle={title}
+                isAdditionalSubmission={isAdditionalSubmission}
               />
             </CardContent>
           </Card>
@@ -585,6 +606,17 @@ const CommunityWall = ({
                   </>
                 )}
               </>
+            )}
+            {!isAdminMode && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSubmitAdditionalEntry}
+                disabled={isRearrangeMode || isDeleteMode}
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                Submit Another Entry
+              </Button>
             )}
             <Button
               variant="outline"

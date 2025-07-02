@@ -526,32 +526,83 @@ export const authApi = {
 export const subscribeToSubmissions = (
   callback: (submissions: Submission[]) => void,
 ) => {
+  console.log(
+    "🔔 [subscribeToSubmissions] Setting up real-time subscription for submissions",
+  );
   return supabase
     .channel("submissions")
     .on(
       "postgres_changes",
       { event: "*", schema: "public", table: "submissions" },
-      () => {
+      (payload) => {
+        console.log(
+          "🔔 [subscribeToSubmissions] Real-time event received:",
+          payload.eventType,
+          payload.new || payload.old,
+        );
         // Refetch submissions when changes occur
-        submissionsApi.getAll().then(callback);
+        submissionsApi
+          .getAll()
+          .then((submissions) => {
+            console.log(
+              "🔔 [subscribeToSubmissions] Refetched submissions:",
+              submissions.length,
+            );
+            callback(submissions);
+          })
+          .catch((error) => {
+            console.error(
+              "🔴 [subscribeToSubmissions] Error refetching submissions:",
+              error,
+            );
+          });
       },
     )
-    .subscribe();
+    .subscribe((status) => {
+      console.log("🔔 [subscribeToSubmissions] Subscription status:", status);
+    });
 };
 
 export const subscribeToEntries = (
   wallId: string,
   callback: (entries: Entry[]) => void,
 ) => {
+  console.log(
+    `🔔 [subscribeToEntries] Setting up real-time subscription for entries on wall: ${wallId}`,
+  );
   return supabase
     .channel(`entries-${wallId}`)
     .on(
       "postgres_changes",
       { event: "*", schema: "public", table: "entries" },
-      () => {
+      (payload) => {
+        console.log(
+          `🔔 [subscribeToEntries] Real-time event received for wall ${wallId}:`,
+          payload.eventType,
+          payload.new || payload.old,
+        );
         // Refetch entries when changes occur
-        entriesApi.getByWallId(wallId).then(callback);
+        entriesApi
+          .getByWallId(wallId)
+          .then((entries) => {
+            console.log(
+              `🔔 [subscribeToEntries] Refetched entries for wall ${wallId}:`,
+              entries.length,
+            );
+            callback(entries);
+          })
+          .catch((error) => {
+            console.error(
+              `🔴 [subscribeToEntries] Error refetching entries for wall ${wallId}:`,
+              error,
+            );
+          });
       },
     )
-    .subscribe();
+    .subscribe((status) => {
+      console.log(
+        `🔔 [subscribeToEntries] Subscription status for wall ${wallId}:`,
+        status,
+      );
+    });
 };

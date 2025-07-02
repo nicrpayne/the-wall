@@ -8,6 +8,8 @@ import {
   Wall,
   Submission,
   Entry,
+  subscribeToSubmissions,
+  subscribeToEntries,
 } from "../lib/supabase";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -96,6 +98,121 @@ const WallPage = () => {
 
     loadWallData();
   }, [wallId]);
+
+  // Set up real-time subscriptions for this wall
+  useEffect(() => {
+    if (!wall?.id) return;
+
+    console.log(
+      "🔔 [WallPage] Setting up real-time subscriptions for wall:",
+      wall.id,
+    );
+
+    // Subscribe to submission changes (for approved submissions)
+    const submissionsSubscription = subscribeToSubmissions(
+      (updatedSubmissions) => {
+        console.log(
+          "🔔 [WallPage] Real-time submission update received:",
+          updatedSubmissions.length,
+        );
+
+        // Filter and transform approved submissions for this wall
+        const wallSubmissions = updatedSubmissions.filter(
+          (submission) =>
+            submission.wall_id === wall.id && submission.status === "approved",
+        );
+
+        const transformedSubmissions = wallSubmissions.map((submission) => ({
+          id: submission.id,
+          imageUrl: submission.image_url,
+          createdAt: submission.submitted_at,
+          approved: true,
+        }));
+
+        // Combine with current direct entries and update
+        setApprovedEntries((prevEntries) => {
+          // Get current direct entries (not from submissions)
+          const currentDirectEntries = prevEntries.filter((entry) =>
+            directEntries.some((directEntry) => directEntry.id === entry.id),
+          );
+
+          const transformedDirectEntries = currentDirectEntries.map(
+            (entry) => ({
+              id: entry.id,
+              imageUrl: entry.imageUrl,
+              createdAt: entry.createdAt,
+              approved: true,
+            }),
+          );
+
+          // Combine and sort
+          const allEntries = [
+            ...transformedSubmissions,
+            ...transformedDirectEntries,
+          ].sort(
+            (a, b) =>
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+          );
+
+          console.log(
+            "🔔 [WallPage] Updated entries from submissions:",
+            allEntries.length,
+          );
+          return allEntries;
+        });
+      },
+    );
+
+    // Subscribe to direct entries changes
+    const entriesSubscription = subscribeToEntries(
+      wall.id,
+      (updatedEntries) => {
+        console.log(
+          "🔔 [WallPage] Real-time entries update received:",
+          updatedEntries.length,
+        );
+
+        setDirectEntries(updatedEntries);
+
+        const transformedDirectEntries = updatedEntries.map((entry) => ({
+          id: entry.id,
+          imageUrl: entry.image_url,
+          createdAt: entry.created_at,
+          approved: true,
+        }));
+
+        // Update approved entries by combining with current approved submissions
+        setApprovedEntries((prevEntries) => {
+          // Get current approved submissions (not direct entries)
+          const currentSubmissionEntries = prevEntries.filter(
+            (entry) =>
+              !directEntries.some((directEntry) => directEntry.id === entry.id),
+          );
+
+          // Combine and sort
+          const allEntries = [
+            ...currentSubmissionEntries,
+            ...transformedDirectEntries,
+          ].sort(
+            (a, b) =>
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+          );
+
+          console.log(
+            "🔔 [WallPage] Updated entries from direct entries:",
+            allEntries.length,
+          );
+          return allEntries;
+        });
+      },
+    );
+
+    return () => {
+      console.log("🔔 [WallPage] Cleaning up real-time subscriptions");
+      submissionsSubscription.unsubscribe();
+      entriesSubscription.unsubscribe();
+    };
+  }, [wall?.id, directEntries]);
 
   // Get wall info from loaded data or provide defaults
   const wallInfo = wall

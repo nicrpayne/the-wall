@@ -57,6 +57,7 @@ import {
   Submission,
   Entry,
   subscribeToSubmissions,
+  subscribeToEntries,
 } from "../lib/supabase";
 import WallCreationForm from "./WallCreationForm";
 import ZoomableImage from "./ZoomableImage";
@@ -129,15 +130,39 @@ const AdminDashboard = () => {
 
     loadData();
 
-    // Subscribe to real-time updates
-    const subscription = subscribeToSubmissions((updatedSubmissions) => {
-      setSubmissions(updatedSubmissions);
-    });
+    // Subscribe to real-time updates for submissions
+    const submissionsSubscription = subscribeToSubmissions(
+      (updatedSubmissions) => {
+        console.log(
+          "🔔 [AdminDashboard] Real-time submission update received:",
+          updatedSubmissions.length,
+        );
+        setSubmissions(updatedSubmissions);
+      },
+    );
+
+    // Subscribe to real-time updates for entries (to update entry counts)
+    const entriesSubscriptions = walls.map((wall) =>
+      subscribeToEntries(wall.id, (updatedEntries) => {
+        console.log(
+          `🔔 [AdminDashboard] Real-time entries update for wall ${wall.id}:`,
+          updatedEntries.length,
+        );
+        setAllEntries((prevEntries) => {
+          // Remove old entries for this wall and add updated ones
+          const otherWallEntries = prevEntries.filter(
+            (entry) => entry.wall_id !== wall.id,
+          );
+          return [...otherWallEntries, ...updatedEntries];
+        });
+      }),
+    );
 
     return () => {
-      subscription.unsubscribe();
+      submissionsSubscription.unsubscribe();
+      entriesSubscriptions.forEach((sub) => sub.unsubscribe());
     };
-  }, [toast]);
+  }, [toast, walls.length]); // Add walls.length to dependency to re-subscribe when walls change
 
   // Helper functions to calculate entry counts dynamically
   const getTotalEntryCount = (wallId: string) => {
