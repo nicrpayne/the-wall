@@ -108,20 +108,19 @@ const WallPage = () => {
       wall.id,
     );
 
-    // Subscribe to submission changes (for approved submissions)
-    const submissionsSubscription = subscribeToSubmissions(
-      (updatedSubmissions) => {
+    // Function to reload all wall data
+    const reloadWallData = async () => {
+      try {
         console.log(
-          "🔔 [WallPage] Real-time submission update received:",
-          updatedSubmissions.length,
+          "🔔 [WallPage] Reloading wall data due to real-time update",
         );
 
-        // Filter and transform approved submissions for this wall
-        const wallSubmissions = updatedSubmissions.filter(
+        // Get fresh submissions data
+        const submissionsData = await submissionsApi.getAll();
+        const wallSubmissions = submissionsData.filter(
           (submission) =>
             submission.wall_id === wall.id && submission.status === "approved",
         );
-
         const transformedSubmissions = wallSubmissions.map((submission) => ({
           id: submission.id,
           imageUrl: submission.image_url,
@@ -129,90 +128,56 @@ const WallPage = () => {
           approved: true,
         }));
 
-        // Combine with current direct entries and update
-        setApprovedEntries((prevEntries) => {
-          // Get current direct entries (not from submissions)
-          const currentDirectEntries = prevEntries.filter((entry) =>
-            directEntries.some((directEntry) => directEntry.id === entry.id),
-          );
-
-          const transformedDirectEntries = currentDirectEntries.map(
-            (entry) => ({
-              id: entry.id,
-              imageUrl: entry.imageUrl,
-              createdAt: entry.createdAt,
-              approved: true,
-            }),
-          );
-
-          // Combine and sort
-          const allEntries = [
-            ...transformedSubmissions,
-            ...transformedDirectEntries,
-          ].sort(
-            (a, b) =>
-              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-          );
-
-          console.log(
-            "🔔 [WallPage] Updated entries from submissions:",
-            allEntries.length,
-          );
-          return allEntries;
-        });
-      },
-    );
-
-    // Subscribe to direct entries changes
-    const entriesSubscription = subscribeToEntries(
-      wall.id,
-      (updatedEntries) => {
-        console.log(
-          "🔔 [WallPage] Real-time entries update received:",
-          updatedEntries.length,
-        );
-
-        setDirectEntries(updatedEntries);
-
-        const transformedDirectEntries = updatedEntries.map((entry) => ({
+        // Get fresh direct entries data
+        const wallEntries = await entriesApi.getByWallId(wall.id);
+        const transformedDirectEntries = wallEntries.map((entry) => ({
           id: entry.id,
           imageUrl: entry.image_url,
           createdAt: entry.created_at,
           approved: true,
         }));
 
-        // Update approved entries by combining with current approved submissions
-        setApprovedEntries((prevEntries) => {
-          // Get current approved submissions (not direct entries)
-          const currentSubmissionEntries = prevEntries.filter(
-            (entry) =>
-              !directEntries.some((directEntry) => directEntry.id === entry.id),
-          );
+        // Combine and sort all entries
+        const allEntries = [
+          ...transformedSubmissions,
+          ...transformedDirectEntries,
+        ].sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        );
 
-          // Combine and sort
-          const allEntries = [
-            ...currentSubmissionEntries,
-            ...transformedDirectEntries,
-          ].sort(
-            (a, b) =>
-              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-          );
+        // Update state
+        setDirectEntries(wallEntries);
+        setApprovedEntries(allEntries);
 
-          console.log(
-            "🔔 [WallPage] Updated entries from direct entries:",
-            allEntries.length,
-          );
-          return allEntries;
+        console.log("🔔 [WallPage] Wall data reloaded:", {
+          submissions: transformedSubmissions.length,
+          directEntries: transformedDirectEntries.length,
+          total: allEntries.length,
         });
-      },
-    );
+      } catch (error) {
+        console.error("🔴 [WallPage] Error reloading wall data:", error);
+      }
+    };
+
+    // Subscribe to submission changes (for approved submissions)
+    const submissionsSubscription = subscribeToSubmissions(() => {
+      console.log("🔔 [WallPage] Submissions changed, reloading wall data");
+      reloadWallData();
+    });
+
+    // Subscribe to direct entries changes
+    const entriesSubscription = subscribeToEntries(wall.id, () => {
+      console.log("🔔 [WallPage] Entries changed, reloading wall data");
+      reloadWallData();
+    });
 
     return () => {
       console.log("🔔 [WallPage] Cleaning up real-time subscriptions");
       submissionsSubscription.unsubscribe();
       entriesSubscription.unsubscribe();
     };
-  }, [wall?.id, directEntries]);
+  }, [wall?.id]);
 
   // Get wall info from loaded data or provide defaults
   const wallInfo = wall
@@ -439,22 +404,72 @@ const WallPage = () => {
         entryIds,
       );
 
-      // Delete entries from database (only from entries table, never submissions)
-      const deletePromises = entryIds.map(async (entryId) => {
-        try {
-          await entriesApi.delete(entryId);
-          return { entryId, success: true };
-        } catch (error) {
-          console.error(
-            `🔴 [WallPage] Failed to delete entry ${entryId}:`,
-            error,
-          );
-          return {
-            entryId,
-            success: false,
-            error: error instanceof Error ? error.message : String(error),
-          };
+      // Separate entries by type: direct entries vs approved submissions
+      const entriesToDelete: string[] = [];
+      const submissionsToReject: string[] = [];
+
+      // Check which entries are direct entries vs approved submissions
+      entryIds.forEach((entryId) => {
+        const isDirectEntry = directEntries.some(
+          (entry) => entry.id === entryId,
+        );
+        if (isDirectEntry) {
+          entriesToDelete.push(entryId);
+        } else {
+          // This is an approved submission, we should reject it instead of deleting
+          submissionsToReject.push(entryId);
         }
+      });
+
+      console.log("🔵 [WallPage] Categorized entries for deletion:", {
+        directEntries: entriesToDelete,
+        approvedSubmissions: submissionsToReject,
+      });
+
+      const deletePromises: Promise<{
+        entryId: string;
+        success: boolean;
+        error?: string;
+      }>[] = [];
+
+      // Delete direct entries from entries table
+      entriesToDelete.forEach((entryId) => {
+        deletePromises.push(
+          entriesApi
+            .delete(entryId)
+            .then(() => ({ entryId, success: true }))
+            .catch((error) => {
+              console.error(
+                `🔴 [WallPage] Failed to delete entry ${entryId}:`,
+                error,
+              );
+              return {
+                entryId,
+                success: false,
+                error: error instanceof Error ? error.message : String(error),
+              };
+            }),
+        );
+      });
+
+      // Reject approved submissions (change status back to rejected)
+      submissionsToReject.forEach((submissionId) => {
+        deletePromises.push(
+          submissionsApi
+            .updateStatus(submissionId, "rejected")
+            .then(() => ({ entryId: submissionId, success: true }))
+            .catch((error) => {
+              console.error(
+                `🔴 [WallPage] Failed to reject submission ${submissionId}:`,
+                error,
+              );
+              return {
+                entryId: submissionId,
+                success: false,
+                error: error instanceof Error ? error.message : String(error),
+              };
+            }),
+        );
       });
 
       const deleteResults = await Promise.all(deletePromises);
@@ -469,7 +484,7 @@ const WallPage = () => {
         successfulIds,
       });
 
-      // Update state to remove successfully deleted entries from UI
+      // Update local state immediately to provide instant feedback
       if (successfulIds.length > 0) {
         setApprovedEntries((prev) =>
           prev.filter((entry) => !successfulIds.includes(entry.id)),
