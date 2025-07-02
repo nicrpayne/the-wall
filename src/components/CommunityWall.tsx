@@ -27,6 +27,7 @@ import {
 import { Link } from "react-router-dom";
 import JournalUploader from "./JournalUploader";
 import WallCreationForm from "./WallCreationForm";
+import RichTextDisplay from "@/components/ui/rich-text-display";
 import { ColumnsPhotoAlbum } from "react-photo-album";
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
@@ -427,7 +428,10 @@ const CommunityWall = ({
           <div className="flex items-center justify-between mb-6">
             <div>
               <h1 className="text-2xl md:text-3xl font-bold mb-2">{title}</h1>
-              <p className="text-muted-foreground">{description}</p>
+              <RichTextDisplay
+                content={description}
+                className="text-muted-foreground"
+              />
             </div>
             {(isAdminMode || isAdditionalSubmission) && (
               <Button
@@ -487,9 +491,9 @@ const CommunityWall = ({
             <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white mb-2 drop-shadow-lg">
               {title}
             </h1>
-            <p className="text-white/90 text-sm md:text-base drop-shadow-md max-w-2xl">
-              {description}
-            </p>
+            <div className="text-white/90 text-sm md:text-base drop-shadow-md max-w-2xl">
+              <RichTextDisplay content={description} className="prose-invert" />
+            </div>
           </div>
         </div>
       )}
@@ -499,7 +503,10 @@ const CommunityWall = ({
         {!wallData?.header_image_url && (
           <div className="mb-6">
             <h1 className="text-2xl md:text-3xl font-bold mb-2">{title}</h1>
-            <p className="text-muted-foreground">{description}</p>
+            <RichTextDisplay
+              content={description}
+              className="text-muted-foreground"
+            />
           </div>
         )}
 

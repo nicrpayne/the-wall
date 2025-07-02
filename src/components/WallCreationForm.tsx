@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import RichTextEditor from "@/components/ui/rich-text-editor";
 import { Switch } from "@/components/ui/switch";
 import { AlertCircle, Copy, Link, Upload, X, Image } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -170,8 +171,8 @@ const WallCreationForm = ({
   };
 
   return (
-    <Card className="w-full max-w-md mx-auto bg-white">
-      <CardHeader>
+    <Card className="w-full max-w-md mx-auto bg-white max-h-[90vh] flex flex-col">
+      <CardHeader className="flex-shrink-0">
         <CardTitle>
           {isEditMode ? "Edit Wall Settings" : "Create New Community Wall"}
         </CardTitle>
@@ -181,7 +182,7 @@ const WallCreationForm = ({
             : "Create a new wall for users to share their journal entries."}
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1 overflow-y-auto space-y-4">
         {error && (
           <Alert variant="destructive" className="mb-4">
             <AlertCircle className="h-4 w-4" />
@@ -269,7 +270,7 @@ const WallCreationForm = ({
             </Button>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="title">Wall Title</Label>
               <Input
@@ -283,12 +284,11 @@ const WallCreationForm = ({
 
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                placeholder="Describe what this wall is about"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                required
+              <RichTextEditor
+                content={description}
+                onChange={setDescription}
+                placeholder="Describe what this wall is about. You can use formatting like **bold**, *italic*, headings, lists, and quotes."
+                className="min-h-[120px]"
               />
             </div>
 
@@ -362,18 +362,13 @@ const WallCreationForm = ({
               />
               <Label htmlFor="private">Make this wall private</Label>
             </div>
-          </form>
+          </div>
         )}
       </CardContent>
 
       {!shareableLink && (
-        <CardFooter className="flex justify-end">
-          <Button
-            type="button"
-            variant="outline"
-            className="mr-2"
-            onClick={handleCancel}
-          >
+        <CardFooter className="flex justify-end items-center gap-2 flex-shrink-0 border-t bg-white p-6">
+          <Button type="button" variant="outline" onClick={handleCancel}>
             Cancel
           </Button>
           <Button onClick={handleSubmit} disabled={isSubmitting}>

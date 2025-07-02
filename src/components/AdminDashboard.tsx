@@ -63,6 +63,7 @@ import {
 } from "../lib/supabase";
 import WallCreationForm from "./WallCreationForm";
 import ZoomableImage from "./ZoomableImage";
+import RichTextDisplay from "@/components/ui/rich-text-display";
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState("walls");
@@ -744,7 +745,12 @@ const AdminDashboard = () => {
                           </Badge>
                         )}
                       </div>
-                      <CardDescription>{wall.description}</CardDescription>
+                      <CardDescription>
+                        <RichTextDisplay
+                          content={wall.description}
+                          className="text-sm"
+                        />
+                      </CardDescription>
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-2">
