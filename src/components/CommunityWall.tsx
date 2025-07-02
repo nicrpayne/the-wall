@@ -497,20 +497,14 @@ const CommunityWall = ({
       <div className="w-full max-w-none mx-auto p-4 md:p-8">
         {/* Title and Description (only show if no header image) */}
         {!wallData?.header_image_url && (
-          <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold mb-2">{title}</h1>
-              <p className="text-muted-foreground">{description}</p>
-            </div>
+          <div className="mb-6">
+            <h1 className="text-2xl md:text-3xl font-bold mb-2">{title}</h1>
+            <p className="text-muted-foreground">{description}</p>
           </div>
         )}
 
-        {/* Admin Controls */}
-        <div
-          className={`flex flex-col md:flex-row md:items-center justify-between ${wallData?.header_image_url ? "mb-6" : !wallData?.header_image_url ? "" : "mb-6"}`}
-        >
-          {wallData?.header_image_url && <div />}{" "}
-          {/* Spacer when header image is present */}
+        {/* Admin Controls - Consistent positioning regardless of header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-end mb-6">
           <div className="flex mt-4 md:mt-0 space-x-2">
             {isAdminMode && (
               <>
