@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react";
-import { Upload, X, Check, Loader2 } from "lucide-react";
+import { Upload, X, Check, Loader2, Plus } from "lucide-react";
 import { Button } from "./ui/button";
 import {
   Card,
@@ -29,9 +29,15 @@ const JournalUploader = ({
   const [isProcessingFile, setIsProcessingFile] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const addMoreFileInputRef = useRef<HTMLInputElement>(null);
 
-  const processFiles = (files: File[]) => {
-    console.log("🔵 [JournalUploader] Processing files:", files.length);
+  const processFiles = (files: File[], append: boolean = false) => {
+    console.log(
+      "🔵 [JournalUploader] Processing files:",
+      files.length,
+      "append:",
+      append,
+    );
 
     if (files.length > 0) {
       // Set processing state immediately when we start processing
@@ -91,8 +97,15 @@ const JournalUploader = ({
         .then((images) => {
           console.log("🔵 [JournalUploader] All files processed successfully");
 
-          setSelectedFiles(validFiles);
-          setCapturedImages(images);
+          if (append) {
+            // Append to existing files and images
+            setSelectedFiles((prev) => [...prev, ...validFiles]);
+            setCapturedImages((prev) => [...prev, ...images]);
+          } else {
+            // Replace existing files and images (original behavior)
+            setSelectedFiles(validFiles);
+            setCapturedImages(images);
+          }
           setShowPreview(true);
           setIsProcessingFile(false);
           console.log(
@@ -144,7 +157,28 @@ const JournalUploader = ({
       return;
     }
 
-    processFiles(files);
+    processFiles(files, false); // false = replace existing files (original behavior)
+  };
+
+  const handleAddMoreFiles = (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log("🔵 [JournalUploader] Add more files input changed");
+    const files = Array.from(event.target.files || []);
+
+    // Clear the input value immediately to allow reselection
+    if (event.target) {
+      event.target.value = "";
+    }
+
+    // If no files selected (user cancelled), reset processing state and don't process
+    if (files.length === 0) {
+      console.log(
+        "🔵 [JournalUploader] No additional files selected (user cancelled)",
+      );
+      setIsProcessingFile(false);
+      return;
+    }
+
+    processFiles(files, true); // true = append to existing files
   };
 
   const handleSubmit = async () => {
@@ -225,6 +259,9 @@ const JournalUploader = ({
     setUploadProgress(0);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
+    }
+    if (addMoreFileInputRef.current) {
+      addMoreFileInputRef.current.value = "";
     }
   };
 
@@ -320,6 +357,27 @@ const JournalUploader = ({
                     </div>
                   </div>
                 ))}
+              </div>
+
+              {/* Add More Images Button */}
+              <div className="flex justify-center mt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => addMoreFileInputRef.current?.click()}
+                  disabled={isProcessingFile || isSubmitting}
+                  className="flex items-center gap-2"
+                >
+                  <Plus size={16} />
+                  Add More Images
+                </Button>
+                <input
+                  type="file"
+                  ref={addMoreFileInputRef}
+                  onChange={handleAddMoreFiles}
+                  accept="image/*,image/jpeg,image/jpg,image/png,image/webp,image/gif"
+                  className="hidden"
+                  multiple
+                />
               </div>
             </div>
           )}
