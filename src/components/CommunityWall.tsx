@@ -421,64 +421,9 @@ const CommunityWall = ({
     }
   };
 
-  if (showUploader) {
-    return (
-      <div className="bg-background min-h-screen p-4 md:p-8">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold mb-2">{title}</h1>
-              <RichTextDisplay
-                content={description}
-                className="text-muted-foreground"
-              />
-            </div>
-            {(isAdminMode || isAdditionalSubmission) && (
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowUploader(false);
-                  setIsAdditionalSubmission(false);
-                }}
-              >
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Wall
-              </Button>
-            )}
-          </div>
-
-          <Card className="mb-6">
-            <CardContent className="p-6">
-              <h2 className="text-xl font-semibold mb-4">
-                {isAdminMode
-                  ? "Add New Entry"
-                  : isAdditionalSubmission
-                    ? "Submit Additional Entry"
-                    : "Share Your Journal Entry"}
-              </h2>
-              <p className="text-muted-foreground mb-6">
-                {isAdminMode
-                  ? "Upload journal entries directly to this wall. Your entries will be added immediately without requiring approval."
-                  : isAdditionalSubmission
-                    ? "Submit another journal entry to this community wall. Your additional submission will be reviewed by a moderator before being added to the wall."
-                    : "To view the community wall, please share your own journal entry first. Your submission will be reviewed by a moderator before being added to the wall."}
-              </p>
-              <JournalUploader
-                onSubmit={handleSubmit}
-                isSubmitting={isLoading}
-                wallTitle={title}
-                isAdditionalSubmission={isAdditionalSubmission}
-              />
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="bg-background min-h-screen">
-      {/* Header Image */}
+      {/* Header Image - Show in both upload and wall view modes */}
       {wallData?.header_image_url && (
         <div className="w-full h-48 md:h-64 lg:h-80 relative overflow-hidden">
           <img
@@ -489,425 +434,478 @@ const CommunityWall = ({
         </div>
       )}
 
-      <div className="w-full max-w-none mx-auto p-4 md:p-8">
-        {/* Title and Description - Always show below header image */}
-        <div className="mb-6">
-          <h1 className="text-2xl md:text-3xl font-bold mb-2">{title}</h1>
-          <RichTextDisplay
-            content={description}
-            className="text-muted-foreground"
-          />
-        </div>
+      {showUploader ? (
+        <div className="w-full max-w-none mx-auto p-4 md:p-8">
+          <div className="max-w-4xl mx-auto">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h1 className="text-2xl md:text-3xl font-bold mb-2">{title}</h1>
+                <RichTextDisplay
+                  content={description}
+                  className="text-muted-foreground"
+                />
+              </div>
+              {(isAdminMode || isAdditionalSubmission) && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowUploader(false);
+                    setIsAdditionalSubmission(false);
+                  }}
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back to Wall
+                </Button>
+              )}
+            </div>
 
-        {/* Admin Controls - Consistent positioning regardless of header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-end mb-6">
-          <div className="flex mt-4 md:mt-0 space-x-2">
-            {isAdminMode && (
-              <>
+            <Card className="mb-6">
+              <CardContent className="p-6">
+                <h2 className="text-xl font-semibold mb-4">
+                  {isAdminMode
+                    ? "Add New Entry"
+                    : isAdditionalSubmission
+                      ? "Submit Additional Entry"
+                      : "Share Your Journal Entry"}
+                </h2>
+                <p className="text-muted-foreground mb-6">
+                  {isAdminMode
+                    ? "Upload journal entries directly to this wall. Your entries will be added immediately without requiring approval."
+                    : isAdditionalSubmission
+                      ? "Submit another journal entry to this community wall. Your additional submission will be reviewed by a moderator before being added to the wall."
+                      : "To view the community wall, please share your own journal entry first. Your submission will be reviewed by a moderator before being added to the wall."}
+                </p>
+                <JournalUploader
+                  onSubmit={handleSubmit}
+                  isSubmitting={isLoading}
+                  wallTitle={title}
+                  isAdditionalSubmission={isAdditionalSubmission}
+                />
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      ) : (
+        <div className="w-full max-w-none mx-auto p-4 md:p-8">
+          {/* Title and Description - Always show below header image */}
+          <div className="mb-6">
+            <h1 className="text-2xl md:text-3xl font-bold mb-2">{title}</h1>
+            <RichTextDisplay
+              content={description}
+              className="text-muted-foreground"
+            />
+          </div>
+
+          {/* Admin Controls - Consistent positioning regardless of header */}
+          <div className="flex flex-col md:flex-row md:items-center justify-end mb-6">
+            <div className="flex mt-4 md:mt-0 space-x-2">
+              {isAdminMode && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    asChild
+                    disabled={isRearrangeMode || isDeleteMode}
+                  >
+                    <Link to="/admin">
+                      <LayoutDashboard className="h-4 w-4 mr-2" />
+                      Dashboard
+                    </Link>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowUploader(true)}
+                    disabled={isRearrangeMode}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Add Entry
+                  </Button>
+                  {!isRearrangeMode && !isDeleteMode ? (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleRearrangeModeToggle(true)}
+                        disabled={entries.length === 0}
+                      >
+                        <Move className="h-4 w-4 mr-2" />
+                        Rearrange
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDeleteModeToggle(true)}
+                        disabled={entries.length === 0}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowSettings(true)}
+                      >
+                        <Settings className="h-4 w-4 mr-2" />
+                        Settings
+                      </Button>
+                    </>
+                  ) : isRearrangeMode ? (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleSaveRearrange}
+                      >
+                        <Save className="h-4 w-4 mr-2" />
+                        Save Order
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleCancelRearrange}
+                      >
+                        <X className="h-4 w-4 mr-2" />
+                        Cancel
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={handleDeleteSelected}
+                        disabled={selectedEntries.size === 0 || isDeleting}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        {isDeleting
+                          ? "Deleting..."
+                          : `Delete Selected (${selectedEntries.size})`}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDeleteModeToggle(false)}
+                      >
+                        <X className="h-4 w-4 mr-2" />
+                        Cancel
+                      </Button>
+                    </>
+                  )}
+                </>
+              )}
+              {!isAdminMode && (
                 <Button
                   variant="outline"
                   size="sm"
-                  asChild
+                  onClick={handleSubmitAdditionalEntry}
                   disabled={isRearrangeMode || isDeleteMode}
                 >
-                  <Link to="/admin">
-                    <LayoutDashboard className="h-4 w-4 mr-2" />
-                    Dashboard
-                  </Link>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowUploader(true)}
-                  disabled={isRearrangeMode}
-                >
                   <Upload className="h-4 w-4 mr-2" />
-                  Add Entry
+                  Submit Another Entry
                 </Button>
-                {!isRearrangeMode && !isDeleteMode ? (
-                  <>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleRearrangeModeToggle(true)}
-                      disabled={entries.length === 0}
-                    >
-                      <Move className="h-4 w-4 mr-2" />
-                      Rearrange
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDeleteModeToggle(true)}
-                      disabled={entries.length === 0}
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Delete
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowSettings(true)}
-                    >
-                      <Settings className="h-4 w-4 mr-2" />
-                      Settings
-                    </Button>
-                  </>
-                ) : isRearrangeMode ? (
-                  <>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleSaveRearrange}
-                    >
-                      <Save className="h-4 w-4 mr-2" />
-                      Save Order
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleCancelRearrange}
-                    >
-                      <X className="h-4 w-4 mr-2" />
-                      Cancel
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={handleDeleteSelected}
-                      disabled={selectedEntries.size === 0 || isDeleting}
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      {isDeleting
-                        ? "Deleting..."
-                        : `Delete Selected (${selectedEntries.size})`}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDeleteModeToggle(false)}
-                    >
-                      <X className="h-4 w-4 mr-2" />
-                      Cancel
-                    </Button>
-                  </>
-                )}
-              </>
-            )}
-            {!isAdminMode && (
+              )}
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleSubmitAdditionalEntry}
+                onClick={handleShareWall}
                 disabled={isRearrangeMode || isDeleteMode}
               >
-                <Upload className="h-4 w-4 mr-2" />
-                Submit Another Entry
+                <Share2 className="h-4 w-4 mr-2" />
+                Share Wall
               </Button>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleShareWall}
-              disabled={isRearrangeMode || isDeleteMode}
-            >
-              <Share2 className="h-4 w-4 mr-2" />
-              Share Wall
-            </Button>
-          </div>
-        </div>
-
-        {hasSubmitted && !isAdminMode && (
-          <Alert className="mb-6">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              Thank you for your submission! It has been sent for review and
-              will appear on the wall once approved.
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {isRearrangeMode && (
-          <Alert className="mb-6">
-            <Move className="h-4 w-4" />
-            <AlertDescription>
-              Drag and drop entries to reorder them. Click "Save Order" when
-              finished or "Cancel" to discard changes.
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {isDeleteMode && (
-          <Alert className="mb-6">
-            <Trash2 className="h-4 w-4" />
-            <AlertDescription>
-              Select entries to delete. Use "Select All" to select all entries
-              at once.
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {entries.length === 0 ? (
-          <Card className="p-8 text-center">
-            <h2 className="text-xl font-semibold mb-2">No Entries Yet</h2>
-            <p className="text-muted-foreground mb-4">
-              Be the first to have your journal entry featured on this wall!
-            </p>
-          </Card>
-        ) : (
-          <>
-            <div className="flex justify-between items-center mb-6">
-              <div className="flex items-center gap-4">
-                <p className="text-sm text-muted-foreground">
-                  {entries.length} entries{" "}
-                  {isRearrangeMode && "(Rearrange Mode)"}{" "}
-                  {isDeleteMode && "(Delete Mode)"}
-                  {console.log(
-                    "🔵 [CommunityWall] Rendering entry count:",
-                    entries.length,
-                    "entries:",
-                    entries.map((e) => ({
-                      id: e.id,
-                      imageUrl: e.imageUrl.substring(0, 30) + "...",
-                    })),
-                  )}
-                </p>
-                {isDeleteMode && entries.length > 0 && (
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="select-all"
-                      checked={
-                        selectedEntries.size === entries.length &&
-                        entries.length > 0
-                      }
-                      onCheckedChange={handleSelectAll}
-                    />
-                    <label
-                      htmlFor="select-all"
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                    >
-                      Select All
-                    </label>
-                  </div>
-                )}
-              </div>
             </div>
+          </div>
 
-            {isRearrangeMode ? (
-              // Rearrange mode - use simple grid with drag and drop
-              <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                {reorderedEntries.map((entry, index) => (
-                  <Card
-                    key={entry.id}
-                    className={`overflow-hidden transition-all duration-200 cursor-move ${
-                      draggedIndex === index
-                        ? "opacity-50 border-primary border-2"
-                        : dragOverIndex === index
-                          ? "border-green-500 border-2"
-                          : "border-dashed border-gray-300"
-                    }`}
-                    draggable={true}
-                    onDragStart={(e) => handleDragStart(e, index)}
-                    onDragOver={(e) => handleDragOver(e, index)}
-                    onDragLeave={(e) => handleDragLeave(e)}
-                    onDragEnd={handleDragEnd}
-                    onDrop={(e) => handleDrop(e, index)}
-                  >
-                    <div className="relative aspect-[3/4]">
-                      <div className="absolute top-2 right-2 z-10 bg-white/90 rounded-full p-1 shadow-sm">
-                        <GripVertical className="h-4 w-4 text-gray-600" />
-                      </div>
-                      <img
-                        src={entry.imageUrl}
-                        alt="Journal entry"
-                        className="object-cover w-full h-full"
-                        loading="lazy"
-                      />
-                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3">
-                        <div className="flex items-center justify-center">
-                          <span className="text-white text-xs font-medium">
-                            {dragOverIndex === index
-                              ? "Drop Here"
-                              : `Position ${index + 1}`}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            ) : isDeleteMode ? (
-              // Delete mode - use simple grid with checkboxes
-              <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                {entries.map((entry, index) => (
-                  <Card
-                    key={entry.id}
-                    className={`overflow-hidden transition-all duration-200 ${
-                      selectedEntries.has(entry.id)
-                        ? "ring-2 ring-destructive"
-                        : "hover:ring-2 hover:ring-muted"
-                    }`}
-                  >
-                    <div className="relative aspect-[3/4]">
-                      <div className="absolute top-2 left-2 z-10">
-                        <Checkbox
-                          checked={selectedEntries.has(entry.id)}
-                          onCheckedChange={(checked) =>
-                            handleSelectEntry(entry.id, checked as boolean)
-                          }
-                          className="bg-white/90 border-2"
-                        />
-                      </div>
-                      <img
-                        src={entry.imageUrl}
-                        alt="Journal entry"
-                        className="object-cover w-full h-full cursor-pointer"
-                        loading="lazy"
-                        onClick={() =>
-                          handleSelectEntry(
-                            entry.id,
-                            !selectedEntries.has(entry.id),
-                          )
+          {hasSubmitted && !isAdminMode && (
+            <Alert className="mb-6">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Thank you for your submission! It has been sent for review and
+                will appear on the wall once approved.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {isRearrangeMode && (
+            <Alert className="mb-6">
+              <Move className="h-4 w-4" />
+              <AlertDescription>
+                Drag and drop entries to reorder them. Click "Save Order" when
+                finished or "Cancel" to discard changes.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {isDeleteMode && (
+            <Alert className="mb-6">
+              <Trash2 className="h-4 w-4" />
+              <AlertDescription>
+                Select entries to delete. Use "Select All" to select all entries
+                at once.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {entries.length === 0 ? (
+            <Card className="p-8 text-center">
+              <h2 className="text-xl font-semibold mb-2">No Entries Yet</h2>
+              <p className="text-muted-foreground mb-4">
+                Be the first to have your journal entry featured on this wall!
+              </p>
+            </Card>
+          ) : (
+            <>
+              <div className="flex justify-between items-center mb-6">
+                <div className="flex items-center gap-4">
+                  <p className="text-sm text-muted-foreground">
+                    {entries.length} entries{" "}
+                    {isRearrangeMode && "(Rearrange Mode)"}{" "}
+                    {isDeleteMode && "(Delete Mode)"}
+                    {console.log(
+                      "🔵 [CommunityWall] Rendering entry count:",
+                      entries.length,
+                      "entries:",
+                      entries.map((e) => ({
+                        id: e.id,
+                        imageUrl: e.imageUrl.substring(0, 30) + "...",
+                      })),
+                    )}
+                  </p>
+                  {isDeleteMode && entries.length > 0 && (
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="select-all"
+                        checked={
+                          selectedEntries.size === entries.length &&
+                          entries.length > 0
                         }
+                        onCheckedChange={handleSelectAll}
                       />
-                      {selectedEntries.has(entry.id) && (
-                        <div className="absolute inset-0 bg-destructive/20 flex items-center justify-center">
-                          <div className="bg-destructive text-destructive-foreground rounded-full p-2">
-                            <Check className="h-4 w-4" />
+                      <label
+                        htmlFor="select-all"
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      >
+                        Select All
+                      </label>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {isRearrangeMode ? (
+                // Rearrange mode - use simple grid with drag and drop
+                <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                  {reorderedEntries.map((entry, index) => (
+                    <Card
+                      key={entry.id}
+                      className={`overflow-hidden transition-all duration-200 cursor-move ${
+                        draggedIndex === index
+                          ? "opacity-50 border-primary border-2"
+                          : dragOverIndex === index
+                            ? "border-green-500 border-2"
+                            : "border-dashed border-gray-300"
+                      }`}
+                      draggable={true}
+                      onDragStart={(e) => handleDragStart(e, index)}
+                      onDragOver={(e) => handleDragOver(e, index)}
+                      onDragLeave={(e) => handleDragLeave(e)}
+                      onDragEnd={handleDragEnd}
+                      onDrop={(e) => handleDrop(e, index)}
+                    >
+                      <div className="relative aspect-[3/4]">
+                        <div className="absolute top-2 right-2 z-10 bg-white/90 rounded-full p-1 shadow-sm">
+                          <GripVertical className="h-4 w-4 text-gray-600" />
+                        </div>
+                        <img
+                          src={entry.imageUrl}
+                          alt="Journal entry"
+                          className="object-cover w-full h-full"
+                          loading="lazy"
+                        />
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3">
+                          <div className="flex items-center justify-center">
+                            <span className="text-white text-xs font-medium">
+                              {dragOverIndex === index
+                                ? "Drop Here"
+                                : `Position ${index + 1}`}
+                            </span>
                           </div>
                         </div>
-                      )}
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            ) : (
-              // Normal mode - use PhotoAlbum masonry layout
-              <div className="w-full">
-                {console.log("🖼️ [CommunityWall] Rendering PhotoAlbum:", {
-                  entriesLength: entries.length,
-                  photosWithDimensionsLength: photosWithDimensions.length,
-                  photos: photosWithDimensions.map((p) => ({
-                    key: p.key,
-                    dimensions: `${p.width}x${p.height}`,
-                    src: p.src.substring(0, 30) + "...",
-                  })),
-                })}
-                {photosWithDimensions.length > 0 &&
-                photosWithDimensions.length === entries.length ? (
-                  <div
-                    className="photo-album-container"
-                    style={{
-                      width: "100%",
-                      maxWidth: "none",
-                      display: "block",
-                      overflow: "visible",
-                    }}
-                  >
-                    <ColumnsPhotoAlbum
-                      photos={photos}
-                      onClick={({ index }) =>
-                        !isDeleteMode && setLightboxIndex(index)
-                      }
-                      spacing={32}
-                      padding={0}
-                      columns={(containerWidth) => {
-                        console.log(
-                          "📐 [CommunityWall] ColumnsPhotoAlbum columns calculation:",
-                          {
-                            containerWidth,
-                            windowWidth:
-                              typeof window !== "undefined"
-                                ? window.innerWidth
-                                : "unknown",
-                            columns:
-                              containerWidth < 640
-                                ? 2
-                                : containerWidth < 1024
-                                  ? 3
-                                  : 4,
-                          },
-                        );
-                        // Force recalculation based on actual viewport
-                        const actualWidth =
-                          typeof window !== "undefined"
-                            ? window.innerWidth
-                            : containerWidth;
-                        if (actualWidth < 640) return 2;
-                        if (actualWidth < 1024) return 3;
-                        return 4;
-                      }}
-                      renderPhoto={({ photo, imageProps, wrapperStyle }) => {
-                        console.log("🎨 [CommunityWall] Rendering photo:", {
-                          key: photo.key,
-                          dimensions: `${photo.width}x${photo.height}`,
-                          imageProps: {
-                            width: imageProps.width,
-                            height: imageProps.height,
-                          },
-                          wrapperStyle,
-                        });
-                        return (
-                          <div
-                            style={{
-                              ...wrapperStyle,
-                              display: "block",
-                              position: "relative",
-                              marginBottom: "16px",
-                              breakInside: "avoid",
-                              pageBreakInside: "avoid",
-                            }}
-                            className="photo-wrapper"
-                          >
-                            <img
-                              {...imageProps}
-                              src={photo.src}
-                              alt={photo.alt}
-                              style={{
-                                width: "100%",
-                                height: "auto",
-                                objectFit: "cover",
-                                display: "block",
-                                borderRadius: "8px",
-                              }}
-                              className="shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-                              loading="lazy"
-                            />
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              ) : isDeleteMode ? (
+                // Delete mode - use simple grid with checkboxes
+                <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                  {entries.map((entry, index) => (
+                    <Card
+                      key={entry.id}
+                      className={`overflow-hidden transition-all duration-200 ${
+                        selectedEntries.has(entry.id)
+                          ? "ring-2 ring-destructive"
+                          : "hover:ring-2 hover:ring-muted"
+                      }`}
+                    >
+                      <div className="relative aspect-[3/4]">
+                        <div className="absolute top-2 left-2 z-10">
+                          <Checkbox
+                            checked={selectedEntries.has(entry.id)}
+                            onCheckedChange={(checked) =>
+                              handleSelectEntry(entry.id, checked as boolean)
+                            }
+                            className="bg-white/90 border-2"
+                          />
+                        </div>
+                        <img
+                          src={entry.imageUrl}
+                          alt="Journal entry"
+                          className="object-cover w-full h-full cursor-pointer"
+                          loading="lazy"
+                          onClick={() =>
+                            handleSelectEntry(
+                              entry.id,
+                              !selectedEntries.has(entry.id),
+                            )
+                          }
+                        />
+                        {selectedEntries.has(entry.id) && (
+                          <div className="absolute inset-0 bg-destructive/20 flex items-center justify-center">
+                            <div className="bg-destructive text-destructive-foreground rounded-full p-2">
+                              <Check className="h-4 w-4" />
+                            </div>
                           </div>
-                        );
+                        )}
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                // Normal mode - use PhotoAlbum masonry layout
+                <div className="w-full">
+                  {console.log("🖼️ [CommunityWall] Rendering PhotoAlbum:", {
+                    entriesLength: entries.length,
+                    photosWithDimensionsLength: photosWithDimensions.length,
+                    photos: photosWithDimensions.map((p) => ({
+                      key: p.key,
+                      dimensions: `${p.width}x${p.height}`,
+                      src: p.src.substring(0, 30) + "...",
+                    })),
+                  })}
+                  {photosWithDimensions.length > 0 &&
+                  photosWithDimensions.length === entries.length ? (
+                    <div
+                      className="photo-album-container"
+                      style={{
+                        width: "100%",
+                        maxWidth: "none",
+                        display: "block",
+                        overflow: "visible",
                       }}
-                    />
-                  </div>
-                ) : entries.length > 0 ? (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="text-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-                      <p className="text-sm text-muted-foreground">
-                        Loading images... ({photosWithDimensions.length}/
-                        {entries.length})
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-2">
-                        This may take a moment for existing images
-                      </p>
+                    >
+                      <ColumnsPhotoAlbum
+                        photos={photos}
+                        onClick={({ index }) =>
+                          !isDeleteMode && setLightboxIndex(index)
+                        }
+                        spacing={32}
+                        padding={0}
+                        columns={(containerWidth) => {
+                          console.log(
+                            "📐 [CommunityWall] ColumnsPhotoAlbum columns calculation:",
+                            {
+                              containerWidth,
+                              windowWidth:
+                                typeof window !== "undefined"
+                                  ? window.innerWidth
+                                  : "unknown",
+                              columns:
+                                containerWidth < 640
+                                  ? 2
+                                  : containerWidth < 1024
+                                    ? 3
+                                    : 4,
+                            },
+                          );
+                          // Force recalculation based on actual viewport
+                          const actualWidth =
+                            typeof window !== "undefined"
+                              ? window.innerWidth
+                              : containerWidth;
+                          if (actualWidth < 640) return 2;
+                          if (actualWidth < 1024) return 3;
+                          return 4;
+                        }}
+                        renderPhoto={({ photo, imageProps, wrapperStyle }) => {
+                          console.log("🎨 [CommunityWall] Rendering photo:", {
+                            key: photo.key,
+                            dimensions: `${photo.width}x${photo.height}`,
+                            imageProps: {
+                              width: imageProps.width,
+                              height: imageProps.height,
+                            },
+                            wrapperStyle,
+                          });
+                          return (
+                            <div
+                              style={{
+                                ...wrapperStyle,
+                                display: "block",
+                                position: "relative",
+                                marginBottom: "16px",
+                                breakInside: "avoid",
+                                pageBreakInside: "avoid",
+                              }}
+                              className="photo-wrapper"
+                            >
+                              <img
+                                {...imageProps}
+                                src={photo.src}
+                                alt={photo.alt}
+                                style={{
+                                  width: "100%",
+                                  height: "auto",
+                                  objectFit: "cover",
+                                  display: "block",
+                                  borderRadius: "8px",
+                                }}
+                                className="shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                                loading="lazy"
+                              />
+                            </div>
+                          );
+                        }}
+                      />
                     </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="text-center">
-                      <p className="text-sm text-muted-foreground">
-                        No images to display
-                      </p>
+                  ) : entries.length > 0 ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="text-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                        <p className="text-sm text-muted-foreground">
+                          Loading images... ({photosWithDimensions.length}/
+                          {entries.length})
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          This may take a moment for existing images
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </>
-        )}
-      </div>
+                  ) : (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="text-center">
+                        <p className="text-sm text-muted-foreground">
+                          No images to display
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       {/* Lightbox */}
       <Lightbox
