@@ -464,7 +464,7 @@ const Home = () => {
         <div className="container mx-auto px-4 py-6">
           <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
             <p className="text-xs sm:text-sm text-muted-foreground text-center sm:text-left">
-              © 2023 Journal Wall. All rights reserved.
+              © 2025 Rebel Leaders. All rights reserved.
             </p>
             <div className="flex gap-3 sm:gap-4">
               <Link

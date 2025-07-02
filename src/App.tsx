@@ -10,6 +10,7 @@ import { useRoutes, Routes, Route, Navigate } from "react-router-dom";
 import Home from "./components/home";
 import AdminDashboard from "./components/AdminDashboard";
 import WallPage from "./components/WallPage";
+import ComingSoon from "./components/ComingSoon";
 import { Toaster } from "@/components/ui/toaster";
 import { authApi } from "./lib/supabase";
 import routes from "tempo-routes";
@@ -291,6 +292,22 @@ function App() {
               }
             />
             <Route path="/wall/:wallId" element={<WallPage />} />
+            <Route
+              path="/about"
+              element={<ComingSoon pageTitle="About Us" />}
+            />
+            <Route
+              path="/terms"
+              element={<ComingSoon pageTitle="Terms of Service" />}
+            />
+            <Route
+              path="/privacy"
+              element={<ComingSoon pageTitle="Privacy Policy" />}
+            />
+            <Route
+              path="/contact"
+              element={<ComingSoon pageTitle="Contact Us" />}
+            />
           </Routes>
           {import.meta.env.VITE_TEMPO === "true" && useRoutes(routes)}
           <Toaster />
