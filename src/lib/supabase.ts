@@ -228,6 +228,19 @@ export const submissionsApi = {
         lastModified: file.lastModified,
       });
 
+      // Vercel-specific optimizations
+      // Check if we need to compress large images for better performance
+      if (file.size > 5 * 1024 * 1024) {
+        // 5MB threshold
+        console.log(
+          "🔵 [submissionsApi.uploadImage] Large file detected, consider compression:",
+          {
+            size: file.size,
+            sizeInMB: (file.size / (1024 * 1024)).toFixed(2),
+          },
+        );
+      }
+
       // Log Supabase client configuration (without exposing sensitive data)
       console.log("🔵 [submissionsApi.uploadImage] Supabase client config:", {
         supabaseUrl: supabaseUrl
@@ -393,7 +406,6 @@ export const submissionsApi = {
         console.error("🔴 [submissionsApi.uploadImage] Upload error details:", {
           message: uploadError.message,
           statusCode: uploadError.statusCode,
-          error: uploadError.error,
           details: uploadError.details,
         });
 

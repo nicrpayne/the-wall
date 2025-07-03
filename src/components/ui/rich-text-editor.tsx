@@ -109,37 +109,6 @@ const RichTextEditor = ({
           className,
         ),
       },
-      handleKeyDown: (view, event) => {
-        // Handle Enter key to create consistent line breaks
-        if (event.key === "Enter" && !event.shiftKey) {
-          // Check if we're in a list or other special context
-          const { state } = view;
-          const { selection } = state;
-          const { $from } = selection;
-
-          // If we're in a list item, let the default behavior handle it
-          if ($from.parent.type.name === "listItem") {
-            return false;
-          }
-
-          // If we're in a heading or blockquote, let default behavior handle it
-          if (
-            $from.parent.type.name === "heading" ||
-            $from.parent.type.name === "blockquote"
-          ) {
-            return false;
-          }
-
-          // For regular paragraphs, create a hard break instead of a new paragraph
-          // This helps maintain consistent spacing
-          const tr = state.tr.replaceSelectionWith(
-            state.schema.nodes.hardBreak.create(),
-          );
-          view.dispatch(tr);
-          return true;
-        }
-        return false;
-      },
     },
     immediatelyRender: false,
   });

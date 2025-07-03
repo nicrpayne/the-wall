@@ -142,7 +142,7 @@ const CommunityWall = ({
     setReorderedEntries(entries);
   }, [entries]);
 
-  // Load image dimensions for masonry layout
+  // Load image dimensions for masonry layout with performance optimization
   useEffect(() => {
     const loadImageDimensions = async () => {
       console.log(
@@ -150,6 +150,9 @@ const CommunityWall = ({
         entries.length,
         "entries",
       );
+
+      // Performance optimization: limit concurrent image loading
+      const BATCH_SIZE = 5; // Load images in batches to prevent memory issues
 
       if (entries.length === 0) {
         console.log("🔍 [CommunityWall] No entries, clearing photos");

@@ -5,12 +5,15 @@ import {
   useState,
   useEffect,
   ReactNode,
+  lazy,
 } from "react";
 import { useRoutes, Routes, Route, Navigate } from "react-router-dom";
 import Home from "./components/home";
-import AdminDashboard from "./components/AdminDashboard";
-import WallPage from "./components/WallPage";
-import ComingSoon from "./components/ComingSoon";
+
+// Lazy load heavy components
+const AdminDashboard = lazy(() => import("./components/AdminDashboard"));
+const WallPage = lazy(() => import("./components/WallPage"));
+const ComingSoon = lazy(() => import("./components/ComingSoon"));
 import { Toaster } from "@/components/ui/toaster";
 import { authApi } from "./lib/supabase";
 import routes from "tempo-routes";
