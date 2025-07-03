@@ -78,14 +78,32 @@ const WallPage = () => {
           approved: true,
         }));
 
-        // Combine both types of entries and sort by creation date
-        const allEntries = [
-          ...transformedSubmissions,
-          ...transformedDirectEntries,
-        ].sort(
-          (a, b) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        // Combine both types of entries with special sorting for newly approved submissions
+        // Add a flag to distinguish between approved submissions and direct entries
+        const submissionsWithFlag = transformedSubmissions.map(
+          (submission) => ({
+            ...submission,
+            isApprovedSubmission: true,
+          }),
         );
+        const directEntriesWithFlag = transformedDirectEntries.map((entry) => ({
+          ...entry,
+          isApprovedSubmission: false,
+        }));
+
+        const allEntries = [
+          ...submissionsWithFlag,
+          ...directEntriesWithFlag,
+        ].sort((a, b) => {
+          // First, prioritize approved submissions over direct entries
+          if (a.isApprovedSubmission && !b.isApprovedSubmission) return -1;
+          if (!a.isApprovedSubmission && b.isApprovedSubmission) return 1;
+
+          // Within the same type, sort by creation date (newest first)
+          return (
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+        });
 
         setApprovedEntries(allEntries);
         setDirectEntries(wallEntries);
@@ -137,14 +155,32 @@ const WallPage = () => {
           approved: true,
         }));
 
-        // Combine and sort all entries
-        const allEntries = [
-          ...transformedSubmissions,
-          ...transformedDirectEntries,
-        ].sort(
-          (a, b) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        // Combine and sort all entries with priority for approved submissions
+        // Add a flag to distinguish between approved submissions and direct entries
+        const submissionsWithFlag = transformedSubmissions.map(
+          (submission) => ({
+            ...submission,
+            isApprovedSubmission: true,
+          }),
         );
+        const directEntriesWithFlag = transformedDirectEntries.map((entry) => ({
+          ...entry,
+          isApprovedSubmission: false,
+        }));
+
+        const allEntries = [
+          ...submissionsWithFlag,
+          ...directEntriesWithFlag,
+        ].sort((a, b) => {
+          // First, prioritize approved submissions over direct entries
+          if (a.isApprovedSubmission && !b.isApprovedSubmission) return -1;
+          if (!a.isApprovedSubmission && b.isApprovedSubmission) return 1;
+
+          // Within the same type, sort by creation date (newest first)
+          return (
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+        });
 
         // Update state
         setDirectEntries(wallEntries);
@@ -234,14 +270,21 @@ const WallPage = () => {
           imageUrl: entry.image_url,
           createdAt: entry.created_at,
           approved: true,
+          isApprovedSubmission: false, // These are direct entries, not approved submissions
         }));
 
         setApprovedEntries((prev) => {
           const combined = [...transformedNewEntries, ...prev];
-          return combined.sort(
-            (a, b) =>
-              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-          );
+          return combined.sort((a, b) => {
+            // First, prioritize approved submissions over direct entries
+            if (a.isApprovedSubmission && !b.isApprovedSubmission) return -1;
+            if (!a.isApprovedSubmission && b.isApprovedSubmission) return 1;
+
+            // Within the same type, sort by creation date (newest first)
+            return (
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            );
+          });
         });
 
         const actualCount = newEntries.length;
