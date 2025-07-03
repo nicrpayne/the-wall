@@ -285,7 +285,7 @@ const Home = () => {
               </div>
             </div>
 
-            <div className="bg-muted p-4 sm:p-6 rounded-lg">
+            <div className="bg-muted/80 border border-border/50 p-4 sm:p-6 rounded-lg shadow-sm">
               <h3 className="font-medium mb-2 text-sm sm:text-base">
                 Have a wall link?
               </h3>
@@ -296,7 +296,7 @@ const Home = () => {
               <div className="flex flex-col sm:flex-row gap-2">
                 <Input
                   placeholder="Enter wall code or URL"
-                  className="flex-1 text-sm"
+                  className="flex-1 text-sm bg-background/50 border-border/60 focus:bg-background focus:border-primary/50"
                   value={wallInput}
                   onChange={(e) => setWallInput(e.target.value)}
                   onKeyPress={(e) => e.key === "Enter" && handleWallAccess()}
