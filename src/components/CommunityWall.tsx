@@ -29,8 +29,66 @@ import JournalUploader from "./JournalUploader";
 import WallCreationForm from "./WallCreationForm";
 import RichTextDisplay from "@/components/ui/rich-text-display";
 import { ColumnsPhotoAlbum } from "react-photo-album";
-import Lightbox from "yet-another-react-lightbox";
-import "yet-another-react-lightbox/styles.css";
+import PhotoSwipe from "photoswipe";
+import "photoswipe/style.css";
+
+// Enhanced PhotoSwipe styles for smoother animations
+const photoSwipeStyles = `
+  .pswp--smooth {
+    will-change: transform, opacity;
+  }
+  
+  .pswp--smooth .pswp__img {
+    will-change: transform;
+    transform: translateZ(0); /* Force hardware acceleration */
+  }
+  
+  .pswp--smooth .pswp__bg {
+    will-change: opacity;
+    transform: translateZ(0);
+    backface-visibility: hidden; /* Prevent flickering */
+  }
+  
+  .pswp--smooth .pswp__container {
+    will-change: transform;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+  }
+  
+  /* Optimize gesture animations */
+  .pswp--smooth .pswp__item {
+    will-change: transform;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+  }
+  
+  /* Smoother zoom animations */
+  .pswp--smooth .pswp__zoom-wrap {
+    transition-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  
+  /* Ultra-smooth swipe gesture optimizations */
+  .pswp--smooth .pswp__item--dragging {
+    transition: none !important;
+    will-change: transform;
+  }
+  
+  .pswp--smooth .pswp__bg--dragging {
+    transition: none !important;
+    will-change: opacity;
+  }
+`;
+
+// Inject styles if not already present
+if (
+  typeof document !== "undefined" &&
+  !document.getElementById("photoswipe-smooth-styles")
+) {
+  const styleElement = document.createElement("style");
+  styleElement.id = "photoswipe-smooth-styles";
+  styleElement.textContent = photoSwipeStyles;
+  document.head.appendChild(styleElement);
+}
 
 interface JournalEntry {
   id: string;
@@ -80,7 +138,6 @@ const CommunityWall = ({
   const [showUploader, setShowUploader] = useState(isFirstVisit);
   const [isLoading, setIsLoading] = useState(false);
   const [hasSubmitted, setHasSubmitted] = useState(false);
-  const [lightboxIndex, setLightboxIndex] = useState(-1);
   const [isMobile, setIsMobile] = useState(false);
   const [isAdditionalSubmission, setIsAdditionalSubmission] = useState(false);
 
@@ -298,13 +355,97 @@ const CommunityWall = ({
   // Use photos with dimensions for PhotoAlbum masonry layout
   const photos = photosWithDimensions;
 
-  // Transform entries for Lightbox
-  const lightboxSlides = (isRearrangeMode ? reorderedEntries : entries).map(
-    (entry) => ({
-      src: entry.imageUrl,
-      alt: `Journal entry from ${new Date(entry.createdAt).toLocaleDateString()}`,
-    }),
-  );
+  // PhotoSwipe gallery initialization
+  const openPhotoSwipe = (index: number) => {
+    const currentEntries = isRearrangeMode ? reorderedEntries : entries;
+
+    console.log("🖼️ [PhotoSwipe] Opening gallery:", {
+      index,
+      totalEntries: currentEntries.length,
+      photosWithDimensions: photosWithDimensions.length,
+    });
+
+    const items = currentEntries.map((entry) => {
+      const photo = photosWithDimensions.find((p) => p.key === entry.id);
+      return {
+        src: entry.imageUrl,
+        width: photo?.width || 800,
+        height: photo?.height || 600,
+        alt: `Journal entry from ${new Date(entry.createdAt).toLocaleDateString()}`,
+      };
+    });
+
+    console.log(
+      "🖼️ [PhotoSwipe] Gallery items:",
+      items.length,
+      "items created",
+    );
+
+    const options = {
+      dataSource: items, // Set dataSource in options, not after init
+      index,
+      showHideAnimationType: "zoom" as const,
+      bgOpacity: 0.85, // Slightly reduced for better performance
+      spacing: 0.08, // Reduced spacing for smoother transitions
+      allowPanToNext: true,
+      loop: false,
+      pinchToClose: true,
+      closeOnVerticalDrag: true,
+      // Optimized animation durations - shorter for swipe gestures
+      hideAnimationDuration: 180, // Reduced from 250ms for snappier swipe dismiss
+      showAnimationDuration: 280, // Keep longer for smooth entry
+      zoomAnimationDuration: 220, // Keep for smooth zoom
+      // Optimized easing function - faster out for swipe gestures
+      easing: "cubic-bezier(0.25, 0.46, 0.45, 0.94)", // Optimized for swipe responsiveness
+      // Mobile optimizations
+      tapAction: "toggle-controls",
+      doubleTapAction: "zoom",
+      preloaderDelay: 200, // Reduced from 300ms for faster response
+      // Enhanced performance optimizations
+      returnFocus: false, // Prevents focus issues that can cause stuttering
+      arrowKeys: false, // Disable arrow keys for better mobile performance
+      escKey: true,
+      // Zoom settings optimized for smooth interaction
+      initialZoomLevel: "fit",
+      secondaryZoomLevel: 1.8, // Slightly reduced from 2 for smoother zoom
+      maxZoomLevel: 3.5, // Reduced from 4 for better performance
+      // UI customization with performance in mind
+      padding: { top: 50, bottom: 50, left: 16, right: 16 }, // Reduced padding
+      wheelToZoom: true,
+      // Counter settings
+      counter: true,
+      // Additional performance settings for ultra-smooth gestures
+      clickToCloseNonZoomable: true,
+      imageClickAction: "close",
+      // Enhanced mobile gesture settings - optimized for smooth swipe
+      closeOnVerticalDragDistance: 60, // Reduced from 80 for more responsive swipe
+      verticalDragToClose: true,
+      // Performance optimizations for smoother animations
+      mainClass: "pswp--smooth", // Custom CSS class for additional optimizations
+      // Improved gesture sensitivity
+      pinchToCloseThreshold: 0.7, // Keep smooth pinch-to-close
+      // Optimized transition settings
+      showAnimationType: "zoom",
+      hideAnimationType: "zoom",
+      // Additional swipe optimization settings
+      bgClickAction: "close", // Allow background click to close
+      tapAction: "toggle-controls", // Keep controls toggle on tap
+      // Enhanced gesture performance
+      allowPanToNext: true,
+      preventBrowserZoom: true, // Prevent browser zoom interference
+      // Smoother drag physics
+      dragToCloseThreshold: 0.4, // Lower threshold for easier drag-to-close
+    };
+
+    const gallery = new PhotoSwipe(options);
+    gallery.init();
+
+    console.log(
+      "🖼️ [PhotoSwipe] Gallery initialized with",
+      gallery.getNumItems(),
+      "items",
+    );
+  };
 
   // Settings functionality
   const handleUpdateWall = async (wallData: {
@@ -810,7 +951,7 @@ const CommunityWall = ({
                       <ColumnsPhotoAlbum
                         photos={photos}
                         onClick={({ index }) =>
-                          !isDeleteMode && setLightboxIndex(index)
+                          !isDeleteMode && openPhotoSwipe(index)
                         }
                         spacing={32}
                         padding={0}
@@ -909,36 +1050,6 @@ const CommunityWall = ({
           )}
         </div>
       )}
-
-      {/* Lightbox */}
-      <Lightbox
-        open={lightboxIndex >= 0}
-        index={lightboxIndex}
-        close={() => setLightboxIndex(-1)}
-        slides={lightboxSlides}
-        carousel={{
-          finite: true,
-        }}
-        zoom={{
-          maxZoomPixelRatio: 3,
-          zoomInMultiplier: 2,
-          doubleTapDelay: 300,
-          doubleClickDelay: 300,
-          doubleClickMaxStops: 2,
-          keyboardMoveDistance: 50,
-          wheelZoomDistanceFactor: 100,
-          pinchZoomDistanceFactor: 100,
-          scrollToZoom: true,
-        }}
-        controller={{
-          closeOnPullDown: true,
-          closeOnBackdropClick: true,
-        }}
-        render={{
-          buttonPrev: () => null,
-          buttonNext: () => null,
-        }}
-      />
 
       {/* Settings Dialog */}
       <Dialog open={showSettings} onOpenChange={setShowSettings}>
